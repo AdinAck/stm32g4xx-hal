@@ -8,7 +8,7 @@
 #![no_main]
 #![no_std]
 
-use embedded_hal::Direction;
+use embedded_hal_02::Direction;
 use hal::dac::{DacExt, DacOut, GeneratorConfig};
 use hal::delay::SYSTDelayExt;
 use hal::gpio::GpioExt;

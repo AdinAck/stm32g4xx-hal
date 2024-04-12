@@ -303,7 +303,7 @@ impl PllNMul {
 
 /// PLL config
 #[derive(Clone, Copy)]
-pub struct PllConfig {
+pub struct RawPllConfig {
     pub mux: PLLSrc,
     pub m: PllMDiv,
     pub n: PllNMul,
@@ -312,9 +312,9 @@ pub struct PllConfig {
     pub p: Option<PllPDiv>,
 }
 
-impl Default for PllConfig {
-    fn default() -> PllConfig {
-        PllConfig {
+impl Default for RawPllConfig {
+    fn default() -> RawPllConfig {
+        RawPllConfig {
             mux: PLLSrc::HSI,
             m: PllMDiv::DIV_2,
             n: PllNMul::MUL_8,
@@ -322,6 +322,20 @@ impl Default for PllConfig {
             q: None,
             p: None,
         }
+    }
+}
+
+impl RawPllConfig {
+    pub const fn validate(self) -> PllConfig {
+        PllConfig::new(self)
+    }
+}
+
+pub struct PllConfig(pub(crate) RawPllConfig);
+
+impl PllConfig {
+    pub const fn new(cfg: RawPllConfig) -> Self {
+        Self(cfg)
     }
 }
 
@@ -385,7 +399,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             sys_mux: SysClockSrc::HSI,
-            pll_cfg: PllConfig::default(),
+            pll_cfg: RawPllConfig::default().validate(),
             ahb_psc: Prescaler::NotDivided,
             apb1_psc: Prescaler::NotDivided,
             apb2_psc: Prescaler::NotDivided,

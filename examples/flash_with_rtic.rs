@@ -13,7 +13,7 @@ mod app {
     use stm32g4xx_hal::flash::{FlashExt, FlashSize, FlashWriter, Parts};
     use stm32g4xx_hal::prelude::*;
     use stm32g4xx_hal::pwr::PwrExt;
-    use stm32g4xx_hal::rcc::{PllConfig, RccExt};
+    use stm32g4xx_hal::rcc::{RawPllConfig, RccExt};
 
     const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 
@@ -45,7 +45,7 @@ mod app {
         let cp = cx.core;
 
         let rcc = dp.RCC.constrain();
-        let mut pll_config = stm32g4xx_hal::rcc::PllConfig::default();
+        let mut pll_config = stm32g4xx_hal::rcc::RawPllConfig::default();
 
         // Sysclock is based on PLL_R
         pll_config.mux = stm32g4xx_hal::rcc::PLLSrc::HSI; // 16MHz

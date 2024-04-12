@@ -18,7 +18,7 @@ fn main() -> ! {
 #[cfg(feature = "stm32g474")]
 #[entry]
 fn main() -> ! {
-    use embedded_hal::Direction;
+    use embedded_hal_02::Direction;
     use hal::comparator::{self, ComparatorExt, ComparatorSplit};
     use hal::dac::{Dac1IntSig1, DacExt, DacOut};
     use hal::delay::SYSTDelayExt;

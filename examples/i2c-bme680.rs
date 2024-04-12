@@ -5,7 +5,7 @@
 
 use bme680::*;
 use core::time::Duration;
-use embedded_hal::blocking::delay::DelayMs;
+use embedded_hal_02::blocking::delay::DelayMs;
 use hal::delay::DelayFromCountDownTimer;
 use hal::i2c::Config;
 use hal::prelude::*;

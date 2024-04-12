@@ -20,7 +20,7 @@ use crate::{
 };
 use core::fmt;
 use core::marker::PhantomData;
-use embedded_hal::{
+use embedded_hal_02::{
     adc::{Channel, OneShot},
     blocking::delay::DelayUs,
 };
@@ -168,7 +168,7 @@ macro_rules! adc_op_follower {
 
 /// Contains types related to ADC configuration
 pub mod config {
-    use embedded_hal::adc::Channel;
+    use embedded_hal_02::adc::Channel;
 
     /// The place in the sequence a given channel should be captured
     #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]

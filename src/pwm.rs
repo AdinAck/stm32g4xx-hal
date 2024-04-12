@@ -172,7 +172,7 @@
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-use crate::hal;
+use crate::hal_02;
 use crate::stm32::LPTIMER1;
 use crate::stm32::RCC;
 #[cfg(any(
@@ -1495,7 +1495,7 @@ macro_rules! tim_pin_hal {
         $ccrx:ident, $typ:ident $(,$ccxne:ident, $ccxnp:ident)*),)+
     ) => {
         $(
-            impl<COMP, POL, NPOL> hal::PwmPin for Pwm<$TIMX, $CH, COMP, POL, NPOL>
+            impl<COMP, POL, NPOL> hal_02::PwmPin for Pwm<$TIMX, $CH, COMP, POL, NPOL>
                 where Pwm<$TIMX, $CH, COMP, POL, NPOL>: PwmPinEnable {
                 type Duty = $typ;
 
@@ -1823,7 +1823,7 @@ macro_rules! lptim_hal {
                 unsafe { MaybeUninit::<PINS::Channel>::uninit().assume_init() }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh> {
+            impl hal_02::PwmPin for Pwm<$TIMX, C1, ComplementaryImpossible, ActiveHigh, ActiveHigh> {
                 type Duty = u16;
 
                 // You may not access self in the following methods!

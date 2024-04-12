@@ -18,7 +18,9 @@ paste = "1.0"
 bitflags = "1.2"
 vcell = "0.1"
 static_assertions = "1.1"
-fugit = "0.3.5"
+fugit = { version = "0.3.5", optional = true }
+embedded-hal-02 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
+embedded-hal-1 = { package = "embedded-hal", version = "1.0" }
 
 [dependencies.cortex-m]
 version = "0.7.7"
@@ -35,10 +37,6 @@ default-features = false
 [dependencies.bare-metal]
 features = ["const-fn"]
 version = "0.2.5"
-
-[dependencies.embedded-hal]
-features = ["unproven"]
-version = "0.2.4"
 
 [dependencies.embedded-dma]
 version = "0.1.2"
@@ -74,8 +72,9 @@ embedded-sdmmc = "0.3.0"
 
 #TODO: Separate feature sets
 [features]
-default = ["rt"]
+default = ["rt", "defmt"]
 rt = ["stm32g4/rt"]
+
 stm32g431 = ["stm32g4/stm32g431"]
 stm32g441 = ["stm32g4/stm32g441"]
 stm32g471 = ["stm32g4/stm32g471"]
@@ -85,10 +84,12 @@ stm32g483 = ["stm32g4/stm32g483"]
 stm32g484 = ["stm32g4/stm32g484"]
 stm32g491 = ["stm32g4/stm32g491"]
 stm32g4a1 = ["stm32g4/stm32g4a1"]
+
 log-itm = ["cortex-m-log/itm"]
 log-rtt = []
 log-semihost = ["cortex-m-log/semihosting"]
-defmt-logging = ["defmt"]
+
+defmt = ["dep:defmt", "fugit/defmt"]
 
 [profile.dev]
 codegen-units = 1

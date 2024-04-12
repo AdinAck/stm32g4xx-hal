@@ -125,7 +125,7 @@ pub trait SerialExt<USART, Config> {
 
 impl<USART, TX, RX> fmt::Write for Serial<USART, TX, RX>
 where
-    Serial<USART, TX, RX>: hal::serial::Write<u8>,
+    Serial<USART, TX, RX>: hal_02::serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
@@ -135,7 +135,7 @@ where
 
 impl<USART, Pin, Dma> fmt::Write for Tx<USART, Pin, Dma>
 where
-    Tx<USART, Pin, Dma>: hal::serial::Write<u8>,
+    Tx<USART, Pin, Dma>: hal_02::serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s.as_bytes().iter().map(|c| block!(self.write(*c))).last();
@@ -220,7 +220,7 @@ macro_rules! uart_shared {
             }
         }
 
-        impl<Pin> hal::serial::Read<u8> for Rx<$USARTX, Pin, NoDMA> {
+        impl<Pin> hal_02::serial::Read<u8> for Rx<$USARTX, Pin, NoDMA> {
             type Error = Error;
 
             fn read(&mut self) -> nb::Result<u8, Error> {
@@ -248,7 +248,7 @@ macro_rules! uart_shared {
             }
         }
 
-        impl<TX, RX> hal::serial::Read<u8> for Serial<$USARTX, TX, RX> {
+        impl<TX, RX> hal_02::serial::Read<u8> for Serial<$USARTX, TX, RX> {
             type Error = Error;
 
             fn read(&mut self) -> nb::Result<u8, Error> {
@@ -314,7 +314,7 @@ macro_rules! uart_shared {
             }
         }
 
-        impl<Pin> hal::serial::Write<u8> for Tx<$USARTX, Pin, NoDMA> {
+        impl<Pin> hal_02::serial::Write<u8> for Tx<$USARTX, Pin, NoDMA> {
             type Error = Error;
 
             fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -337,7 +337,7 @@ macro_rules! uart_shared {
             }
         }
 
-        impl<TX, RX> hal::serial::Write<u8> for Serial<$USARTX, TX, RX> {
+        impl<TX, RX> hal_02::serial::Write<u8> for Serial<$USARTX, TX, RX> {
             type Error = Error;
 
             fn flush(&mut self) -> nb::Result<(), Self::Error> {

@@ -43,9 +43,9 @@ use cortex_m::peripheral::SYST;
 
 use crate::nb::block;
 use crate::time::ExtU32;
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
+use embedded_hal_02::blocking::delay::{DelayMs, DelayUs};
 
-pub trait CountDown: embedded_hal::timer::CountDown {
+pub trait CountDown: embedded_hal_02::timer::CountDown {
     fn max_period(&self) -> MicroSecond;
 }
 

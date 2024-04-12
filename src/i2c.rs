@@ -1,5 +1,5 @@
 //! I2C
-use hal::blocking::i2c::{Read, Write, WriteRead};
+use hal_02::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpiof::*};
 #[cfg(any(

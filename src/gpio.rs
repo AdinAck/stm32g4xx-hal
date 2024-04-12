@@ -240,7 +240,7 @@ macro_rules! gpio {
         /// GPIO
         pub mod $gpiox {
             use core::marker::PhantomData;
-            use hal::digital::v2::{toggleable, InputPin, OutputPin, StatefulOutputPin};
+            use hal_02::digital::v2::{toggleable, InputPin, OutputPin, StatefulOutputPin};
             use crate::stm32::{EXTI, $GPIOX};
             use crate::exti::{ExtiExt, Event};
             use crate::rcc::Rcc;
