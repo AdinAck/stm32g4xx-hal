@@ -19,8 +19,12 @@ bitflags = "1.2"
 vcell = "0.1"
 static_assertions = "1.1"
 fugit = { version = "0.3.5", optional = true }
-embedded-hal-02 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
+embedded-hal-02 = { package = "embedded-hal", version = "0.2.7", features = [
+    "unproven",
+] }
 embedded-hal-1 = { package = "embedded-hal", version = "1.0" }
+proto-hal = { path = "/Users/adinack/Projects/proto-hal" }
+fixed = "1.28.0"
 
 [dependencies.cortex-m]
 version = "0.7.7"
@@ -72,7 +76,7 @@ embedded-sdmmc = "0.3.0"
 
 #TODO: Separate feature sets
 [features]
-default = ["rt", "defmt"]
+default = ["rt", "defmt", "stm32g431"]
 rt = ["stm32g4/rt"]
 
 stm32g431 = ["stm32g4/stm32g431"]

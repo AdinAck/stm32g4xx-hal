@@ -32,6 +32,7 @@ pub extern crate cortex_m;
 pub extern crate embedded_hal_02 as hal_02;
 pub extern crate embedded_hal_1 as hal_1;
 pub extern crate nb;
+pub extern crate proto_hal as proto;
 pub extern crate stm32g4;
 
 pub use nb::block;
@@ -75,6 +76,7 @@ pub mod adc;
 pub mod bb;
 pub mod can;
 pub mod comparator;
+pub mod cordic;
 // pub mod crc;
 pub mod dac;
 pub mod delay;

@@ -33,13 +33,13 @@ pub struct Clocks {
     /// APB 2 timers frequency (Timers 1, 8, 20, 15, 16, 17 and HRTIM1)
     pub apb2_tim_clk: Hertz,
     /// PLL frequency
-    pub pll_clk: PLLClocks,
+    pub pll_clk: PllClocks,
 }
 
 /// PLL Clock frequencies
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct PLLClocks {
+pub struct PllClocks {
     /// R frequency
     pub r: Option<Hertz>,
     /// Q frequency
@@ -59,7 +59,7 @@ impl Default for Clocks {
             apb1_tim_clk: freq,
             apb2_clk: freq,
             apb2_tim_clk: freq,
-            pll_clk: PLLClocks {
+            pll_clk: PllClocks {
                 r: None,
                 q: None,
                 p: None,
@@ -239,7 +239,7 @@ impl Rcc {
         pwr.cr1.modify(|_, w| w.dbp().set_bit());
     }
 
-    fn config_pll(&self, PllConfig(pll_cfg): PllConfig) -> PLLClocks {
+    fn config_pll(&self, PllConfig(pll_cfg): PllConfig) -> PllClocks {
         // Disable PLL
         self.rb.cr.modify(|_, w| w.pllon().clear_bit());
         while self.rb.cr.read().pllrdy().bit_is_set() {}
@@ -314,7 +314,7 @@ impl Rcc {
         self.rb.cr.modify(|_, w| w.pllon().set_bit());
         while self.rb.cr.read().pllrdy().bit_is_clear() {}
 
-        PLLClocks {
+        PllClocks {
             r: r.map(|r| r.0),
             q: q.map(|q| q.0),
             p: p.map(|p| p.0),
