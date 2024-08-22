@@ -14,9 +14,16 @@ impl Ext for CORDIC {
     #[inline]
     fn constrain(self, rcc: &mut Rcc) -> CordicReset {
         rcc.rb.ahb1enr.modify(|_, w| w.cordicen().set_bit());
-        // SAFETY: we assume the resource
-        // is already in a reset state.
-        unsafe { CordicReset::wrap(self) }
+
+        // lock until enabled
+        rcc.rb.ahb1enr.read().cordicen();
+
+        Cordic {
+            rb: self,
+            _arg_size: PhantomData,
+            _res_size: PhantomData,
+            _func: PhantomData,
+        }
     }
 }
 
@@ -27,7 +34,7 @@ pub trait DataType {
 pub mod arg_type {
     use super::*;
 
-    pub trait State: proto::TypeState<Binding = CORDIC> {}
+    pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {}
 
     pub struct Q31;
     pub struct Q15;
@@ -41,14 +48,14 @@ pub mod arg_type {
     }
 
     macro_rules! impls {
-        ( $( ($NAME:ident, $FUNC:ident) $(,)?)+ ) => {
+        ( $( ($NAME:ident, $SIZE:ident) $(,)?)+ ) => {
             $(
                 impl proto::TypeState for $NAME {
-                    type Binding = CORDIC;
+                    type Binding = crate::stm32::cordic::csr::W;
 
                     #[inline]
-                    fn set(rb: &mut Self::Binding) {
-                        rb.csr.modify(|_, w| w.argsize().$FUNC());
+                    fn set(w: &mut Self::Binding) {
+                        w.argsize().$SIZE();
                     }
                 }
 
@@ -60,33 +67,13 @@ pub mod arg_type {
     impls! {
         (Q31, bits32),
         (Q15, bits16),
-    }
-
-    impl<Arg, Res, Func> Cordic<Arg, Res, Func>
-    where
-        Arg: arg_type::State,
-        Res: res_type::State,
-        Func: func::State,
-    {
-        #[inline]
-        pub fn arg_type<NewArg>(mut self) -> Cordic<NewArg, Res, Func>
-        where
-            NewArg: arg_type::State,
-        {
-            NewArg::set(&mut self.rb);
-
-            // SAFETY: the resource was configured
-            // such that it is represented by the new
-            // type-states
-            unsafe { Cordic::wrap(self.rb) }
-        }
     }
 }
 
 pub mod res_type {
     use super::*;
 
-    pub trait State: proto::TypeState<Binding = CORDIC> {}
+    pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {}
 
     pub struct Q31;
     pub struct Q15;
@@ -100,14 +87,14 @@ pub mod res_type {
     }
 
     macro_rules! impls {
-        ( $( ($NAME:ident, $FUNC:ident) $(,)?)+ ) => {
+        ( $( ($NAME:ident, $SIZE:ident) $(,)?)+ ) => {
             $(
                 impl proto::TypeState for $NAME {
-                    type Binding = CORDIC;
+                    type Binding = crate::stm32::cordic::csr::W;
 
                     #[inline]
-                    fn set(rb: &mut Self::Binding) {
-                        rb.csr.modify(|_, w| w.ressize().$FUNC());
+                    fn set(w: &mut Self::Binding) {
+                        w.ressize().$SIZE();
                     }
                 }
 
@@ -119,26 +106,6 @@ pub mod res_type {
     impls! {
         (Q31, bits32),
         (Q15, bits16),
-    }
-
-    impl<Arg, Res, Func> Cordic<Arg, Res, Func>
-    where
-        Arg: arg_type::State,
-        Res: res_type::State,
-        Func: func::State,
-    {
-        #[inline]
-        pub fn res_type<NewRes>(mut self) -> Cordic<Arg, NewRes, Func>
-        where
-            NewRes: res_type::State,
-        {
-            NewRes::set(&mut self.rb);
-
-            // SAFETY: the resource was configured
-            // such that it is represented by the new
-            // type-states
-            unsafe { Cordic::wrap(self.rb) }
-        }
     }
 }
 
@@ -146,9 +113,7 @@ pub mod func {
     use super::*;
 
     pub mod nargs {
-        use super::*;
-
-        pub trait State: proto::TypeState<Binding = CORDIC> {}
+        pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {}
 
         pub struct One;
         pub struct Two;
@@ -157,11 +122,11 @@ pub mod func {
             ( $( ($NAME:ident, $NARGS:ident) $(,)?)+ ) => {
                 $(
                     impl proto::TypeState for $NAME {
-                        type Binding = CORDIC;
+                        type Binding = crate::stm32::cordic::csr::W;
 
                         #[inline]
-                        fn set(rb: &mut Self::Binding) {
-                            rb.csr.modify(|_, w| w.nargs().$NARGS());
+                        fn set(w: &mut Self::Binding) {
+                            w.nargs().$NARGS();
                         }
                     }
 
@@ -177,9 +142,7 @@ pub mod func {
     }
 
     pub mod nres {
-        use super::*;
-
-        pub trait State: proto::TypeState<Binding = CORDIC> {}
+        pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {}
 
         pub struct One;
         pub struct Two;
@@ -188,11 +151,11 @@ pub mod func {
             ( $( ($NAME:ident, $NRES:ident) $(,)?)+ ) => {
                 $(
                     impl proto::TypeState for $NAME {
-                        type Binding = CORDIC;
+                        type Binding = crate::stm32::cordic::csr::W;
 
                         #[inline]
-                        fn set(rb: &mut Self::Binding) {
-                            rb.csr.modify(|_, w| w.nres().$NRES());
+                        fn set(w: &mut Self::Binding) {
+                            w.nres().$NRES();
                         }
                     }
 
@@ -208,9 +171,7 @@ pub mod func {
     }
 
     pub mod scale {
-        use super::*;
-
-        pub trait State: proto::TypeState<Binding = CORDIC> {
+        pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {
             const BITS: u8;
         }
 
@@ -227,11 +188,11 @@ pub mod func {
             ( $( ($NAME:ident, $BITS:expr) $(,)? )+ ) => {
                 $(
                     impl proto::TypeState for $NAME {
-                        type Binding = CORDIC;
+                        type Binding = crate::stm32::cordic::csr::W;
 
                         #[inline]
-                        fn set(rb: &mut Self::Binding) {
-                            rb.csr.modify(|_, w| w.scale().bits(<Self as State>::BITS));
+                        fn set(w: &mut Self::Binding) {
+                            w.scale().bits(<Self as State>::BITS);
                         }
                     }
 
@@ -254,7 +215,7 @@ pub mod func {
         }
     }
 
-    pub trait State: proto::TypeState<Binding = CORDIC> {
+    pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {
         type Args: nargs::State;
         type Results: nres::State;
     }
@@ -288,14 +249,14 @@ pub mod func {
         ( $( ($NAME:ident < $SCALE:ty >, $FUNC:ident, nargs::$NARGS:ident, nres::$NRES:ident, start( $($START_PARAM:ident),+ )) $(,)?)+ ) => {
             $(
                 impl proto::TypeState for $NAME {
-                    type Binding = CORDIC;
+                    type Binding = crate::stm32::cordic::csr::W;
 
                     #[inline]
-                    fn set(rb: &mut Self::Binding) {
-                        <Self as State>::Args::set(rb);
-                        <Self as State>::Results::set(rb);
+                    fn set(w: &mut Self::Binding) {
+                        <Self as State>::Args::set(w);
+                        <Self as State>::Results::set(w);
 
-                        rb.csr.modify(|_, w| w.func().$FUNC());
+                        w.func().$FUNC();
                     }
                 }
 
@@ -384,7 +345,7 @@ pub mod func {
                     $SECONDARY: <arg_type::Q15 as DataType>::Fixed
                 ) {
                     // $RM0440 17.4.2
-                    let reg = ($PRIMARY.to_bits() as u16 as u32) + (($SECONDARY.to_bits() as u16 as u32) << 16);
+                    let reg = ($PRIMARY.to_bits() as u16 as u32) | (($SECONDARY.to_bits() as u16 as u32) << 16);
 
                     self.rb.wdata.write(|w| w.arg().bits(reg));
                 }
@@ -487,15 +448,15 @@ pub mod func {
             $(
                 $(
                     impl proto::TypeState for $NAME<$SCALE> {
-                        type Binding = CORDIC;
+                        type Binding = crate::stm32::cordic::csr::W;
 
                         #[inline]
-                        fn set(rb: &mut Self::Binding) {
-                            <Self as State>::Args::set(rb);
-                            <Self as State>::Results::set(rb);
-                            <$SCALE>::set(rb);
+                        fn set(w: &mut Self::Binding) {
+                            <Self as State>::Args::set(w);
+                            <Self as State>::Results::set(w);
+                            <$SCALE>::set(w);
 
-                            rb.csr.modify(|_, w| w.func().$FUNC());
+                            w.func().$FUNC();
                         }
                     }
 
@@ -531,26 +492,6 @@ pub mod func {
         (ATan<scale::N0, scale::N1, scale::N2, scale::N3, scale::N4, scale::N5, scale::N6, scale::N7>, arctangent, nargs::One, nres::One, start(x)),
         (Ln<scale::N1, scale::N2, scale::N3, scale::N4>, natural_logarithm, nargs::One, nres::One, start(x)),
         (Sqrt<scale::N0, scale::N1, scale::N2>, square_root, nargs::One, nres::One, start(x)),
-    }
-
-    impl<Arg, Res, Func> Cordic<Arg, Res, Func>
-    where
-        Arg: arg_type::State,
-        Res: res_type::State,
-        Func: func::State,
-    {
-        #[inline]
-        pub fn func<NewFunc>(mut self) -> Cordic<Arg, Res, NewFunc>
-        where
-            NewFunc: func::State,
-        {
-            NewFunc::set(&mut self.rb);
-
-            // SAFETY: the resource was configured
-            // such that it is represented by the new
-            // type-states
-            unsafe { Cordic::wrap(self.rb) }
-        }
     }
 }
 
@@ -591,20 +532,31 @@ where
     Res: res_type::State,
     Func: func::State,
 {
-    /// Wrap the CORDIC resource with the
-    /// abstraction layer.
+    /// Configure the resource as dictated by the resulting
+    /// type-states. The produced binding represents
+    /// a frozen configuration, since it is represented
+    /// by types. A new binding will need to be made --
+    /// and the old binding invalidated -- in order to change
+    /// the configuration.
     ///
-    /// # Safety
-    ///
-    /// The resulting type's generic type-states
-    /// are inferred by context, *not* the state
-    /// of the resource. If the resource state
-    /// and abstractor state are conflicting, the
-    /// established invariance is broken.
-    #[inline]
-    const unsafe fn wrap(rb: CORDIC) -> Self {
+    /// *Note: The configuration is inferred from context because
+    /// it is represented by generic type-states.*
+    pub fn freeze<NewArg, NewRes, NewFunc>(self) -> Cordic<NewArg, NewRes, NewFunc>
+    where
+        NewArg: arg_type::State,
+        NewRes: res_type::State,
+        NewFunc: func::State,
+    {
+        self.rb.csr.write(|w| {
+            NewArg::set(w);
+            NewRes::set(w);
+            NewFunc::set(w);
+
+            w
+        });
+
         Cordic {
-            rb,
+            rb: self.rb,
             _arg_size: PhantomData,
             _res_size: PhantomData,
             _func: PhantomData,
@@ -613,14 +565,12 @@ where
 
     /// Set the precision for the operation (number of iterations).
     #[inline]
-    pub fn precision(self, precision: Precision) -> Self {
+    pub fn set_precision(&mut self, precision: Precision) {
         // SAFETY: reserved bit value "0" is not a discriminant
         // of the `Precision` enum.
         self.rb
             .csr
             .modify(|_, w| unsafe { w.precision().bits(precision as u8) });
-
-        self
     }
 
     #[inline]
@@ -642,10 +592,11 @@ where
 
     #[inline]
     fn into_reset(self) -> Self::Reset {
-        self.arg_type().res_type().func()
+        self.freeze()
     }
 }
 
+// TODO: release should take &mut Rcc to disable CORDIC AHB src
 impl<Arg, Res, Func> proto::Release for Cordic<Arg, Res, Func>
 where
     Arg: arg_type::State,

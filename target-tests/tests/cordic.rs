@@ -48,10 +48,11 @@ mod tests {
 
         defmt::debug!("{}", rcc.clocks);
 
-        p.CORDIC
-            .constrain(&mut rcc)
-            .func()
-            .precision(cordic::Precision::P60) // max precision
+        let mut cordic = p.CORDIC.constrain(&mut rcc).freeze();
+
+        cordic.set_precision(cordic::Precision::P60); // max precision
+
+        cordic
     }
 
     #[test]
