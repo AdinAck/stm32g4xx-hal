@@ -19,8 +19,12 @@ mod tests {
         stm32::Peripherals,
     };
 
-    type TestCordic =
-        cordic::Cordic<cordic::arg_type::Q31, cordic::res_type::Q31, cordic::func::SinCos>;
+    type TestCordic = cordic::Cordic<
+        cordic::arg_type::Q31,
+        cordic::res_type::Q31,
+        cordic::func::SinCos,
+        cordic::prec::P60,
+    >;
 
     #[init]
     fn init() -> TestCordic {
@@ -48,11 +52,7 @@ mod tests {
 
         defmt::debug!("{}", rcc.clocks);
 
-        let mut cordic = p.CORDIC.constrain(&mut rcc).freeze();
-
-        cordic.set_precision(cordic::Precision::P60); // max precision
-
-        cordic
+        p.CORDIC.constrain(&mut rcc).freeze()
     }
 
     #[test]

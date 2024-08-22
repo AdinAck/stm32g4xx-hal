@@ -23,6 +23,7 @@ impl Ext for CORDIC {
             _arg_size: PhantomData,
             _res_size: PhantomData,
             _func: PhantomData,
+            _prec: PhantomData,
         }
     }
 }
@@ -274,9 +275,10 @@ pub mod func {
         ($NAME:ty, nargs::One, start( $PRIMARY:ident )) => {
             // arg_type: Q31
             // nargs: 1
-            impl<Res> Cordic<arg_type::Q31, Res, $NAME>
+            impl<Res, Prec> Cordic<arg_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
@@ -290,9 +292,10 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 1
-            impl<Res> Cordic<arg_type::Q15, Res, $NAME>
+            impl<Res, Prec> Cordic<arg_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
@@ -309,9 +312,10 @@ pub mod func {
         ($NAME:ty, nargs::Two, start( $PRIMARY:ident, $SECONDARY:ident )) => {
             // arg_type: Q31
             // nargs: 2
-            impl<Res> Cordic<arg_type::Q31, Res, $NAME>
+            impl<Res, Prec> Cordic<arg_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
@@ -332,9 +336,10 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 2
-            impl<Res> Cordic<arg_type::Q15, Res, $NAME>
+            impl<Res, Prec> Cordic<arg_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
@@ -356,13 +361,14 @@ pub mod func {
         ($NAME:ty, nres::One) => {
             // res_type: Q31
             // nres: 1
-            impl<Arg> Cordic<Arg, res_type::Q31, $NAME>
+            impl<Arg, Prec> Cordic<Arg, res_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
-                #[doc = "is still ongoing.*"]
+                #[doc = "is ongoing.*"]
                 #[inline]
                 pub fn result(&mut self) -> <res_type::Q31 as DataType>::Fixed {
                     <res_type::Q31 as DataType>::Fixed::from_bits(
@@ -373,13 +379,14 @@ pub mod func {
 
             // res_type: Q15
             // nres: 1
-            impl<Arg> Cordic<Arg, res_type::Q15, $NAME>
+            impl<Arg, Prec> Cordic<Arg, res_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
-                #[doc = "is still ongoing.*"]
+                #[doc = "is ongoing.*"]
                 #[inline]
                 pub fn result(&mut self) -> <res_type::Q15 as DataType>::Fixed {
                     <res_type::Q15 as DataType>::Fixed::from_bits(
@@ -393,13 +400,14 @@ pub mod func {
         ($NAME:ty, nres::Two) => {
             // res_type: Q31
             // nres: 2
-            impl<Arg> Cordic<Arg, res_type::Q31, $NAME>
+            impl<Arg, Prec> Cordic<Arg, res_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
-                #[doc = "is still ongoing.*"]
+                #[doc = "is ongoing.*"]
                 #[inline]
                 pub fn result(
                     &mut self,
@@ -416,13 +424,14 @@ pub mod func {
 
             // res_type: Q15
             // nres: 2
-            impl<Arg> Cordic<Arg, res_type::Q15, $NAME>
+            impl<Arg, Prec> Cordic<Arg, res_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
+                Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
-                #[doc = "is still ongoing.*"]
+                #[doc = "is ongoing.*"]
                 #[inline]
                 pub fn result(
                     &mut self,
@@ -495,42 +504,87 @@ pub mod func {
     }
 }
 
-pub struct Cordic<Arg, Res, Func>
+pub mod prec {
+    pub trait State: proto::TypeState<Binding = crate::stm32::cordic::csr::W> {
+        const BITS: u8;
+    }
+
+    pub struct P4;
+    pub struct P8;
+    pub struct P12;
+    pub struct P16;
+    pub struct P20;
+    pub struct P24;
+    pub struct P28;
+    pub struct P32;
+    pub struct P36;
+    pub struct P40;
+    pub struct P44;
+    pub struct P48;
+    pub struct P52;
+    pub struct P56;
+    pub struct P60;
+
+    macro_rules! impls {
+        ( $( ($NAME:ident, $BITS:expr) $(,)? )+ ) => {
+            $(
+                impl proto::TypeState for $NAME {
+                    type Binding = crate::stm32::cordic::csr::W;
+
+                    #[inline]
+                    fn set(w: &mut Self::Binding) {
+                        // SAFETY: reliant valid type-state
+                        // implementations
+                        unsafe { w.precision().bits(<Self as State>::BITS) };
+                    }
+                }
+
+                impl State for $NAME {
+                    const BITS: u8 = $BITS;
+                }
+            )+
+        };
+    }
+
+    impls! {
+        (P4, 1),
+        (P8, 2),
+        (P12, 3),
+        (P16, 4),
+        (P20, 5),
+        (P24, 6),
+        (P28, 7),
+        (P32, 8),
+        (P36, 9),
+        (P40, 10),
+        (P44, 11),
+        (P48, 12),
+        (P52, 13),
+        (P56, 14),
+        (P60, 15),
+    }
+}
+
+pub struct Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
     Res: res_type::State,
     Func: func::State,
+    Prec: prec::State,
 {
     rb: CORDIC,
     _arg_size: PhantomData<Arg>,
     _res_size: PhantomData<Res>,
     _func: PhantomData<Func>,
+    _prec: PhantomData<Prec>,
 }
 
-#[repr(u8)]
-pub enum Precision {
-    P4 = 0x1,
-    P8,
-    P12,
-    P16,
-    P20,
-    P24,
-    P28,
-    P32,
-    P36,
-    P40,
-    P44,
-    P48,
-    P52,
-    P56,
-    P60,
-}
-
-impl<Arg, Res, Func> Cordic<Arg, Res, Func>
+impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
     Res: res_type::State,
     Func: func::State,
+    Prec: prec::State,
 {
     /// Configure the resource as dictated by the resulting
     /// type-states. The produced binding represents
@@ -541,16 +595,20 @@ where
     ///
     /// *Note: The configuration is inferred from context because
     /// it is represented by generic type-states.*
-    pub fn freeze<NewArg, NewRes, NewFunc>(self) -> Cordic<NewArg, NewRes, NewFunc>
+    pub fn freeze<NewArg, NewRes, NewFunc, NewPrec>(
+        self,
+    ) -> Cordic<NewArg, NewRes, NewFunc, NewPrec>
     where
         NewArg: arg_type::State,
         NewRes: res_type::State,
         NewFunc: func::State,
+        NewPrec: prec::State,
     {
         self.rb.csr.write(|w| {
             NewArg::set(w);
             NewRes::set(w);
             NewFunc::set(w);
+            NewPrec::set(w);
 
             w
         });
@@ -560,17 +618,8 @@ where
             _arg_size: PhantomData,
             _res_size: PhantomData,
             _func: PhantomData,
+            _prec: PhantomData,
         }
-    }
-
-    /// Set the precision for the operation (number of iterations).
-    #[inline]
-    pub fn set_precision(&mut self, precision: Precision) {
-        // SAFETY: reserved bit value "0" is not a discriminant
-        // of the `Precision` enum.
-        self.rb
-            .csr
-            .modify(|_, w| unsafe { w.precision().bits(precision as u8) });
     }
 
     #[inline]
@@ -580,13 +629,14 @@ where
 }
 
 /// $RM0440 17.4.1
-pub type CordicReset = Cordic<arg_type::Q31, res_type::Q31, func::Cos>;
+pub type CordicReset = Cordic<arg_type::Q31, res_type::Q31, func::Cos, prec::P20>;
 
-impl<Arg, Res, Func> proto::IntoReset for Cordic<Arg, Res, Func>
+impl<Arg, Res, Func, Prec> proto::IntoReset for Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
     Res: res_type::State,
     Func: func::State,
+    Prec: prec::State,
 {
     type Reset = CordicReset;
 
@@ -597,11 +647,12 @@ where
 }
 
 // TODO: release should take &mut Rcc to disable CORDIC AHB src
-impl<Arg, Res, Func> proto::Release for Cordic<Arg, Res, Func>
+impl<Arg, Res, Func, Prec> proto::Release for Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
     Res: res_type::State,
     Func: func::State,
+    Prec: prec::State,
 {
     type Resource = CORDIC;
 
@@ -615,11 +666,12 @@ pub mod events {
     pub struct Ready;
 }
 
-impl<Arg, Res, Func> proto::Listen for Cordic<Arg, Res, Func>
+impl<Arg, Res, Func, Prec> proto::Listen for Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
     Res: res_type::State,
     Func: func::State,
+    Prec: prec::State,
 {
     type Events = events::Ready;
 
