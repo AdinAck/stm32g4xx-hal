@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
 
+//! CORDIC access.
+
 use crate::{rcc::Rcc, stm32::CORDIC};
 use core::marker::PhantomData;
 

@@ -76,7 +76,6 @@ pub mod adc;
 pub mod bb;
 pub mod can;
 pub mod comparator;
-/// CORDIC access.
 pub mod cordic;
 // pub mod crc;
 pub mod dac;
