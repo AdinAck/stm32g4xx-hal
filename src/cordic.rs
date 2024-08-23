@@ -52,7 +52,7 @@ pub mod arg_type {
     use super::data_type;
 
     /// Trait for argument type-states.
-    pub trait State {
+    pub(crate) trait State {
         /// Bit representation of the argument type.
         const BITS: bool;
 
@@ -62,7 +62,7 @@ pub mod arg_type {
     }
 
     macro_rules! impls {
-        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
+        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
             $(
                 impl State for $NAME {
                     const BITS: bool = $BITS;
@@ -87,7 +87,7 @@ pub mod res_type {
     use super::data_type;
 
     /// Trait for result type-states.
-    pub trait State {
+    pub(crate) trait State {
         /// Bit representation of the result type.
         const BITS: bool;
 
@@ -97,7 +97,7 @@ pub mod res_type {
     }
 
     macro_rules! impls {
-        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
+        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
             $(
                 impl State for $NAME {
                     const BITS: bool = $BITS;
@@ -126,7 +126,7 @@ pub mod func {
         use super::*;
 
         /// Trait for function argument type-states.
-        pub trait State<Arg>
+        pub(crate) trait State<Arg>
         where
             Arg: arg_type::State,
         {
@@ -164,7 +164,7 @@ pub mod func {
         use super::*;
 
         /// Trait for function result type-states.
-        pub trait State<Res>
+        pub(crate) trait State<Res>
         where
             Res: res_type::State,
         {
@@ -200,7 +200,7 @@ pub mod func {
     /// Traits and structures related to function scale type-states.
     pub mod scale {
         /// Trait for function scale type-states.
-        pub trait State {
+        pub(crate) trait State {
             /// Bit representation of the scale.
             const BITS: u8;
 
@@ -254,15 +254,15 @@ pub mod func {
     }
 
     /// Trait for function type-states.
-    pub trait State<Arg, Res>
+    pub(crate) trait State<Arg, Res>
     where
         Arg: arg_type::State,
         Res: res_type::State,
     {
         /// The number of arguments required by this function.
-        type Args: nargs::State<Arg>;
+        type NArgs: nargs::State<Arg>;
         /// The number of arguments produced by this function.
-        type Results: nres::State<Res>;
+        type NRes: nres::State<Res>;
 
         /// Configure the resource to be represented
         /// by this type-state.
@@ -292,6 +292,7 @@ pub mod func {
     /// Arctangent of x.
     ///
     /// This function can be scaled by 0-7.
+    #[allow(private_bounds)]
     pub struct ATan<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
@@ -306,12 +307,14 @@ pub mod func {
     /// Natural logarithm of x.
     ///
     /// This function can be scaled by 1-4.
+    #[allow(private_bounds)]
     pub struct Ln<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
     /// Square root of x.
     ///
     /// This function can be scaled by 0-2.
+    #[allow(private_bounds)]
     pub struct Sqrt<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
@@ -325,13 +328,14 @@ pub mod func {
                     Arg: arg_type::State,
                     Res: res_type::State,
                 {
-                    type Args = nargs::$NARGS;
-                    type Results = nres::$NRES;
+                    type NArgs = nargs::$NARGS;
+                    type NRes = nres::$NRES;
 
                     #[inline]
                     fn set(w: &mut crate::stm32::cordic::csr::W) {
-                        <nargs::$NARGS as nargs::State<Arg>>::set(w);
-                        <nres::$NRES as nres::State<Res>>::set(w);
+                        <Self::NArgs as nargs::State<Arg>>::set(w);
+                        <Self::NRes as nres::State<Res>>::set(w);
+                        <$SCALE as scale::State>::set(w);
                         w.func().$FUNC();
                     }
                 }
@@ -345,6 +349,7 @@ pub mod func {
         ($NAME:ty, nargs::One, start( $PRIMARY:ident )) => {
             // arg_type: Q31
             // nargs: 1
+            #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
@@ -362,6 +367,7 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 1
+            #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
@@ -387,6 +393,7 @@ pub mod func {
         ($NAME:ty, nargs::Two, start( $PRIMARY:ident, $SECONDARY:ident )) => {
             // arg_type: Q31
             // nargs: 2
+            #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
@@ -411,6 +418,7 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 2
+            #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
@@ -436,6 +444,7 @@ pub mod func {
         ($NAME:ty, nres::One) => {
             // res_type: Q31
             // nres: 1
+            #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
@@ -454,6 +463,7 @@ pub mod func {
 
             // res_type: Q15
             // nres: 1
+            #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
@@ -475,6 +485,7 @@ pub mod func {
         ($NAME:ty, nres::Two) => {
             // res_type: Q31
             // nres: 2
+            #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
@@ -499,6 +510,7 @@ pub mod func {
 
             // res_type: Q15
             // nres: 2
+            #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
@@ -527,7 +539,7 @@ pub mod func {
     }
 
     macro_rules! impls_multi_scale {
-        // root / config
+        // root / config (almost identical to single scale)
         ( $( ($NAME:ident < $( $SCALE:ty  $(,)? )+ >, $FUNC:ident, nargs::$NARGS:ident, nres::$NRES:ident, start $START_PARAM:tt ) $(,)?)+ ) => {
             $(
                 $(
@@ -536,13 +548,14 @@ pub mod func {
                         Arg: arg_type::State,
                         Res: res_type::State,
                     {
-                        type Args = nargs::$NARGS;
-                        type Results = nres::$NRES;
+                        type NArgs = nargs::$NARGS;
+                        type NRes = nres::$NRES;
 
                         #[inline]
                         fn set(w: &mut crate::stm32::cordic::csr::W) {
-                            <nargs::$NARGS as nargs::State<Arg>>::set(w);
-                            <nres::$NRES as nres::State<Res>>::set(w);
+                            <Self::NArgs as nargs::State<Arg>>::set(w);
+                            <Self::NRes as nres::State<Res>>::set(w);
+                            <$SCALE as scale::State>::set(w);
                             w.func().$FUNC();
                         }
                     }
@@ -580,7 +593,7 @@ pub mod func {
 /// Traits and structures related to precision type-states.
 pub mod prec {
     /// Trait for precision type-states.
-    pub trait State {
+    pub(crate) trait State {
         /// Bit representation of the precision.
         const BITS: u8;
 
@@ -628,7 +641,7 @@ pub mod prec {
 
                     #[inline]
                     fn set(w: &mut crate::stm32::cordic::csr::W) {
-                        // SAFETY: reliant valid type-state
+                        // SAFETY: reliant on valid type-state
                         // implementations.
                         unsafe { w.precision().bits(<Self as State>::BITS) };
                     }
@@ -657,6 +670,7 @@ pub mod prec {
 }
 
 /// Cordic co-processor interface.
+#[allow(private_bounds)]
 pub struct Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
@@ -672,6 +686,7 @@ where
 }
 
 // root impl
+#[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
@@ -755,6 +770,7 @@ where
 }
 
 // listen
+#[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
@@ -776,6 +792,7 @@ where
 }
 
 // release
+#[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: arg_type::State,
