@@ -18,9 +18,6 @@ impl Ext for CORDIC {
     fn constrain(self, rcc: &mut Rcc) -> CordicReset {
         rcc.rb.ahb1enr.modify(|_, w| w.cordicen().set_bit());
 
-        // lock until enabled
-        rcc.rb.ahb1enr.read().cordicen();
-
         // SAFETY: the resource is assumed to be
         // in the "reset" configuration.
         unsafe { Cordic::wrap(self) }
