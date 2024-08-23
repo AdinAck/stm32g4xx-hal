@@ -2,10 +2,6 @@
 
 use crate::{rcc::Rcc, stm32::CORDIC};
 use core::marker::PhantomData;
-use fixed::{
-    traits::Fixed,
-    types::{I1F15, I1F31},
-};
 
 /// Extension trait for constraining the CORDIC peripheral.
 pub trait Ext {
@@ -24,24 +20,17 @@ impl Ext for CORDIC {
     }
 }
 
-/// Trait for newtypes to represent CORDIC argument or result data.
-pub trait DataType {
-    /// The underlying fixed-point data type.
-    type Fixed: Fixed;
-}
+/// Traits and structures related to data types.
+pub mod data_type {
+    use fixed::{
+        traits::Fixed,
+        types::{I1F15, I1F31},
+    };
 
-/// Traits and structures related to argument type-states.
-pub mod arg_type {
-    use super::*;
-
-    /// Trait for argument type-states.
-    pub trait State {
-        /// Bit representation of the argument type.
-        const BITS: bool;
-
-        /// Configure the resource to be represented
-        /// by this type-state.
-        fn set(w: &mut crate::stm32::cordic::csr::W);
+    /// Trait for newtypes to represent CORDIC argument or result data.
+    pub trait DataType {
+        /// The underlying fixed-point data type.
+        type Fixed: Fixed;
     }
 
     /// q1.31 fixed point format.
@@ -56,9 +45,24 @@ pub mod arg_type {
     impl DataType for Q15 {
         type Fixed = I1F15;
     }
+}
+
+/// Traits and structures related to argument type-states.
+pub mod arg_type {
+    use super::data_type;
+
+    /// Trait for argument type-states.
+    pub trait State {
+        /// Bit representation of the argument type.
+        const BITS: bool;
+
+        /// Configure the resource to be represented
+        /// by this type-state.
+        fn set(w: &mut crate::stm32::cordic::csr::W);
+    }
 
     macro_rules! impls {
-        ( $( ($NAME:ident, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
+        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
             $(
                 impl State for $NAME {
                     const BITS: bool = $BITS;
@@ -73,14 +77,14 @@ pub mod arg_type {
     }
 
     impls! {
-        (Q31, bits32, false),
-        (Q15, bits16, true),
+        (data_type::Q31, bits32, false),
+        (data_type::Q15, bits16, true),
     }
 }
 
 /// Traits and structures related to result type-states.
 pub mod res_type {
-    use super::*;
+    use super::data_type;
 
     /// Trait for result type-states.
     pub trait State {
@@ -92,21 +96,8 @@ pub mod res_type {
         fn set(w: &mut crate::stm32::cordic::csr::W);
     }
 
-    /// q1.31 fixed point format.
-    pub struct Q31;
-    /// q1.15 fixed point format.
-    pub struct Q15;
-
-    impl DataType for Q31 {
-        type Fixed = I1F31;
-    }
-
-    impl DataType for Q15 {
-        type Fixed = I1F15;
-    }
-
     macro_rules! impls {
-        ( $( ($NAME:ident, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
+        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)?)+ ) => {
             $(
                 impl State for $NAME {
                     const BITS: bool = $BITS;
@@ -121,8 +112,8 @@ pub mod res_type {
     }
 
     impls! {
-        (Q31, bits32, false),
-        (Q15, bits16, true),
+        (data_type::Q31, bits32, false),
+        (data_type::Q15, bits16, true),
     }
 }
 
@@ -354,7 +345,7 @@ pub mod func {
         ($NAME:ty, nargs::One, start( $PRIMARY:ident )) => {
             // arg_type: Q31
             // nargs: 1
-            impl<Res, Prec> Cordic<arg_type::Q31, Res, $NAME, Prec>
+            impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
                 Prec: prec::State,
@@ -362,7 +353,7 @@ pub mod func {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
                 #[inline]
-                pub fn start(&mut self, $PRIMARY: <arg_type::Q31 as DataType>::Fixed) {
+                pub fn start(&mut self, $PRIMARY: <data_type::Q31 as data_type::DataType>::Fixed) {
                     self.rb
                         .wdata
                         .write(|w| w.arg().bits($PRIMARY.to_bits() as _));
@@ -371,7 +362,7 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 1
-            impl<Res, Prec> Cordic<arg_type::Q15, Res, $NAME, Prec>
+            impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
                 Prec: prec::State,
@@ -379,7 +370,7 @@ pub mod func {
                 #[doc = "Start evaluating the configured function"]
                 #[doc = "with the provided inputs."]
                 #[inline]
-                pub fn start(&mut self, $PRIMARY: <arg_type::Q15 as DataType>::Fixed) {
+                pub fn start(&mut self, $PRIMARY: <data_type::Q15 as data_type::DataType>::Fixed) {
                     // $RM0440 17.4.2
                     // since we are only using the lower half of the register,
                     // the CORDIC **will** read the upper half if the function
@@ -396,7 +387,7 @@ pub mod func {
         ($NAME:ty, nargs::Two, start( $PRIMARY:ident, $SECONDARY:ident )) => {
             // arg_type: Q31
             // nargs: 2
-            impl<Res, Prec> Cordic<arg_type::Q31, Res, $NAME, Prec>
+            impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
                 Res: res_type::State,
                 Prec: prec::State,
@@ -406,8 +397,8 @@ pub mod func {
                 #[inline]
                 pub fn start(
                     &mut self,
-                    $PRIMARY: <arg_type::Q31 as DataType>::Fixed,
-                    $SECONDARY: <arg_type::Q31 as DataType>::Fixed
+                    $PRIMARY: <data_type::Q31 as data_type::DataType>::Fixed,
+                    $SECONDARY: <data_type::Q31 as data_type::DataType>::Fixed
                 ) {
                     self.rb
                         .wdata
@@ -420,7 +411,7 @@ pub mod func {
 
             // arg_type: Q15
             // nargs: 2
-            impl<Res, Prec> Cordic<arg_type::Q15, Res, $NAME, Prec>
+            impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
                 Res: res_type::State,
                 Prec: prec::State,
@@ -430,8 +421,8 @@ pub mod func {
                 #[inline]
                 pub fn start(
                     &mut self,
-                    $PRIMARY: <arg_type::Q15 as DataType>::Fixed,
-                    $SECONDARY: <arg_type::Q15 as DataType>::Fixed
+                    $PRIMARY: <data_type::Q15 as data_type::DataType>::Fixed,
+                    $SECONDARY: <data_type::Q15 as data_type::DataType>::Fixed
                 ) {
                     // $RM0440 17.4.2
                     let reg = ($PRIMARY.to_bits() as u16 as u32) | (($SECONDARY.to_bits() as u16 as u32) << 16);
@@ -445,7 +436,7 @@ pub mod func {
         ($NAME:ty, nres::One) => {
             // res_type: Q31
             // nres: 1
-            impl<Arg, Prec> Cordic<Arg, res_type::Q31, $NAME, Prec>
+            impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
                 Prec: prec::State,
@@ -454,8 +445,8 @@ pub mod func {
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
                 #[doc = "is ongoing.*"]
                 #[inline]
-                pub fn result(&mut self) -> <res_type::Q31 as DataType>::Fixed {
-                    <res_type::Q31 as DataType>::Fixed::from_bits(
+                pub fn result(&mut self) -> <data_type::Q31 as data_type::DataType>::Fixed {
+                    <data_type::Q31 as data_type::DataType>::Fixed::from_bits(
                         self.rb.rdata.read().res().bits() as _
                     )
                 }
@@ -463,7 +454,7 @@ pub mod func {
 
             // res_type: Q15
             // nres: 1
-            impl<Arg, Prec> Cordic<Arg, res_type::Q15, $NAME, Prec>
+            impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
                 Prec: prec::State,
@@ -472,8 +463,8 @@ pub mod func {
                 #[doc = "\n*Note: This function locks the core if an evaluation"]
                 #[doc = "is ongoing.*"]
                 #[inline]
-                pub fn result(&mut self) -> <res_type::Q15 as DataType>::Fixed {
-                    <res_type::Q15 as DataType>::Fixed::from_bits(
+                pub fn result(&mut self) -> <data_type::Q15 as data_type::DataType>::Fixed {
+                    <data_type::Q15 as data_type::DataType>::Fixed::from_bits(
                         self.rb.rdata.read().res().bits() as _,
                     )
                 }
@@ -484,7 +475,7 @@ pub mod func {
         ($NAME:ty, nres::Two) => {
             // res_type: Q31
             // nres: 2
-            impl<Arg, Prec> Cordic<Arg, res_type::Q31, $NAME, Prec>
+            impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
                 Arg: arg_type::State,
                 Prec: prec::State,
@@ -496,19 +487,19 @@ pub mod func {
                 pub fn result(
                     &mut self,
                 ) -> (
-                    <res_type::Q31 as DataType>::Fixed,
-                    <res_type::Q31 as DataType>::Fixed,
+                    <data_type::Q31 as data_type::DataType>::Fixed,
+                    <data_type::Q31 as data_type::DataType>::Fixed,
                 ) {
                     (
-                        <res_type::Q31 as DataType>::Fixed::from_bits(self.rb.rdata.read().res().bits() as _),
-                        <res_type::Q31 as DataType>::Fixed::from_bits(self.rb.rdata.read().res().bits() as _),
+                        <data_type::Q31 as data_type::DataType>::Fixed::from_bits(self.rb.rdata.read().res().bits() as _),
+                        <data_type::Q31 as data_type::DataType>::Fixed::from_bits(self.rb.rdata.read().res().bits() as _),
                     )
                 }
             }
 
             // res_type: Q15
             // nres: 2
-            impl<Arg, Prec> Cordic<Arg, res_type::Q15, $NAME, Prec>
+            impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
                 Arg: arg_type::State,
                 Prec: prec::State,
@@ -520,15 +511,15 @@ pub mod func {
                 pub fn result(
                     &mut self,
                 ) -> (
-                    <res_type::Q15 as DataType>::Fixed,
-                    <res_type::Q15 as DataType>::Fixed,
+                    <data_type::Q15 as data_type::DataType>::Fixed,
+                    <data_type::Q15 as data_type::DataType>::Fixed,
                 ) {
                     let reg = self.rb.rdata.read().res().bits();
 
                     // $RM0440 17.4.3
                     (
-                        <res_type::Q15 as DataType>::Fixed::from_bits((reg & 0xffff) as _),
-                        <res_type::Q15 as DataType>::Fixed::from_bits((reg >> 16) as _),
+                        <data_type::Q15 as data_type::DataType>::Fixed::from_bits((reg & 0xffff) as _),
+                        <data_type::Q15 as data_type::DataType>::Fixed::from_bits((reg >> 16) as _),
                     )
                 }
             }
@@ -746,7 +737,7 @@ where
 }
 
 /// $RM0440 17.4.1
-pub type CordicReset = Cordic<arg_type::Q31, res_type::Q31, func::Cos, prec::P20>;
+pub type CordicReset = Cordic<data_type::Q31, data_type::Q31, func::Cos, prec::P20>;
 
 impl<Arg, Res, Func, Prec> proto::IntoReset for Cordic<Arg, Res, Func, Prec>
 where
