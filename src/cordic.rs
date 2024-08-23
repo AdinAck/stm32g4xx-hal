@@ -778,7 +778,6 @@ where
     #[inline]
     pub fn listen(&mut self) {
         self.rb.csr.modify(|_, w| w.ien().set_bit());
-        let _ = self.rb.csr.read();
     }
 
     /// Disable the result ready interrupt.
@@ -809,8 +808,11 @@ where
     /// Release the CORDIC resource binding after reset.
     #[inline]
     pub fn release_and_reset(self, rcc: &mut Rcc) -> CORDIC {
+        let reset: CordicReset = self.freeze();
+
         rcc.rb.ahb1enr.modify(|_, w| w.cordicen().clear_bit());
 
-        self.rb
+        // SAFETY: the resource has been reset
+        unsafe { reset.release() }
     }
 }
