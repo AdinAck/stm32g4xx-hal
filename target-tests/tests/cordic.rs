@@ -20,8 +20,8 @@ mod tests {
     };
 
     type TestCordic = cordic::Cordic<
-        cordic::arg_type::Q31,
-        cordic::res_type::Q31,
+        cordic::data_type::Q31,
+        cordic::data_type::Q31,
         cordic::func::SinCos,
         cordic::prec::P60,
     >;
