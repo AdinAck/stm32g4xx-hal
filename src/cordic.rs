@@ -47,75 +47,71 @@ pub mod data_type {
     impl DataType for Q15 {
         type Fixed = I1F15;
     }
-}
 
-/// Traits and structures related to argument type-states.
-pub mod arg_type {
-    use super::data_type;
+    /// Traits and structures related to argument type-states.
+    pub mod arg {
+        /// Trait for argument type-states.
+        pub(crate) trait State {
+            /// Bit representation of the argument type.
+            const BITS: bool;
 
-    /// Trait for argument type-states.
-    pub(crate) trait State {
-        /// Bit representation of the argument type.
-        const BITS: bool;
+            /// Configure the resource to be represented
+            /// by this type-state.
+            fn set(w: &mut crate::stm32::cordic::csr::W);
+        }
 
-        /// Configure the resource to be represented
-        /// by this type-state.
-        fn set(w: &mut crate::stm32::cordic::csr::W);
-    }
+        macro_rules! impls {
+            ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
+                $(
+                    impl State for $NAME {
+                        const BITS: bool = $BITS;
 
-    macro_rules! impls {
-        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
-            $(
-                impl State for $NAME {
-                    const BITS: bool = $BITS;
-
-                    #[inline]
-                    fn set(w: &mut crate::stm32::cordic::csr::W) {
-                        w.argsize().$SIZE();
+                        #[inline]
+                        fn set(w: &mut crate::stm32::cordic::csr::W) {
+                            w.argsize().$SIZE();
+                        }
                     }
-                }
-            )+
-        };
+                )+
+            };
+        }
+
+        impls! {
+            (super::Q31, bits32, false),
+            (super::Q15, bits16, true),
+        }
     }
 
-    impls! {
-        (data_type::Q31, bits32, false),
-        (data_type::Q15, bits16, true),
-    }
-}
+    /// Traits and structures related to result type-states.
+    pub mod res {
+        /// Trait for result type-states.
+        pub(crate) trait State {
+            /// Bit representation of the result type.
+            const BITS: bool;
 
-/// Traits and structures related to result type-states.
-pub mod res_type {
-    use super::data_type;
+            /// Configure the resource to be represented
+            /// by this type-state.
+            fn set(w: &mut crate::stm32::cordic::csr::W);
+        }
 
-    /// Trait for result type-states.
-    pub(crate) trait State {
-        /// Bit representation of the result type.
-        const BITS: bool;
+        macro_rules! impls {
+            ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
+                $(
+                    impl State for $NAME {
+                        const BITS: bool = $BITS;
 
-        /// Configure the resource to be represented
-        /// by this type-state.
-        fn set(w: &mut crate::stm32::cordic::csr::W);
-    }
-
-    macro_rules! impls {
-        ( $( ($NAME:ty, $SIZE:ident, $BITS:expr) $(,)? )+ ) => {
-            $(
-                impl State for $NAME {
-                    const BITS: bool = $BITS;
-
-                    #[inline]
-                    fn set(w: &mut crate::stm32::cordic::csr::W) {
-                        w.ressize().$SIZE();
+                        #[inline]
+                        fn set(w: &mut crate::stm32::cordic::csr::W) {
+                            w.ressize().$SIZE();
+                        }
                     }
-                }
-            )+
-        };
-    }
+                )+
+            };
+        }
 
-    impls! {
-        (data_type::Q31, bits32, false),
-        (data_type::Q15, bits16, true),
+        impls! {
+            (super::Q31, bits32, false),
+            (super::Q15, bits16, true),
+        }
     }
 }
 
@@ -123,78 +119,76 @@ pub mod res_type {
 pub mod func {
     use super::*;
 
-    /// Traits and structures related to function argument count type-states.
-    pub mod nargs {
-        use super::*;
-
-        /// Trait for function argument type-states.
-        pub(crate) trait State<Arg>
-        where
-            Arg: arg_type::State,
-        {
-            /// Configure the resource to be represented
-            /// by this type-state.
-            fn set(w: &mut crate::stm32::cordic::csr::W);
-        }
-
-        /// One (primary) function argument.
+    /// Traits and structures related to data counts (argument or result).
+    pub mod data_count {
+        /// One (primary) function argument/result.
         pub struct One;
-        /// Two (primary and secondary) function arguements.
+        /// Two (primary and secondary) function arguments/results.
         pub struct Two;
 
-        impl<Arg> State<Arg> for One
-        where
-            Arg: arg_type::State,
-        {
-            fn set(w: &mut crate::stm32::cordic::csr::W) {
-                w.nargs().num1();
+        /// Traits and structures related to function argument count type-states.
+        pub mod arg {
+            use super::super::data_type;
+
+            /// Trait for function argument type-states.
+            pub(crate) trait State<Arg>
+            where
+                Arg: data_type::arg::State,
+            {
+                /// Configure the resource to be represented
+                /// by this type-state.
+                fn set(w: &mut crate::stm32::cordic::csr::W);
+            }
+
+            impl<Arg> State<Arg> for super::One
+            where
+                Arg: data_type::arg::State,
+            {
+                fn set(w: &mut crate::stm32::cordic::csr::W) {
+                    w.nargs().num1();
+                }
+            }
+
+            impl<Arg> State<Arg> for super::Two
+            where
+                Arg: data_type::arg::State,
+            {
+                fn set(w: &mut crate::stm32::cordic::csr::W) {
+                    w.nargs().bit(!Arg::BITS);
+                }
             }
         }
 
-        impl<Arg> State<Arg> for Two
-        where
-            Arg: arg_type::State,
-        {
-            fn set(w: &mut crate::stm32::cordic::csr::W) {
-                w.nargs().bit(!Arg::BITS);
+        /// Traits and structures related to function result count type-states.
+        pub mod res {
+            use super::super::data_type;
+
+            /// Trait for function result type-states.
+            pub(crate) trait State<Res>
+            where
+                Res: data_type::res::State,
+            {
+                /// Configure the resource to be represented
+                /// by this type-state.
+                fn set(w: &mut crate::stm32::cordic::csr::W);
             }
-        }
-    }
 
-    /// Traits and structures related to function result count type-states.
-    pub mod nres {
-        use super::*;
-
-        /// Trait for function result type-states.
-        pub(crate) trait State<Res>
-        where
-            Res: res_type::State,
-        {
-            /// Configure the resource to be represented
-            /// by this type-state.
-            fn set(w: &mut crate::stm32::cordic::csr::W);
-        }
-
-        /// One (primary) function result.
-        pub struct One;
-        /// Two (primary and secondary) function results.
-        pub struct Two;
-
-        impl<Res> State<Res> for One
-        where
-            Res: res_type::State,
-        {
-            fn set(w: &mut crate::stm32::cordic::csr::W) {
-                w.nargs().num1();
+            impl<Res> State<Res> for super::One
+            where
+                Res: data_type::res::State,
+            {
+                fn set(w: &mut crate::stm32::cordic::csr::W) {
+                    w.nargs().num1();
+                }
             }
-        }
 
-        impl<Res> State<Res> for Two
-        where
-            Res: res_type::State,
-        {
-            fn set(w: &mut crate::stm32::cordic::csr::W) {
-                w.nres().bit(!Res::BITS);
+            impl<Res> State<Res> for super::Two
+            where
+                Res: data_type::res::State,
+            {
+                fn set(w: &mut crate::stm32::cordic::csr::W) {
+                    w.nres().bit(!Res::BITS);
+                }
             }
         }
     }
@@ -258,13 +252,13 @@ pub mod func {
     /// Trait for function type-states.
     pub(crate) trait State<Arg, Res>
     where
-        Arg: arg_type::State,
-        Res: res_type::State,
+        Arg: data_type::arg::State,
+        Res: data_type::res::State,
     {
         /// The number of arguments required by this function.
-        type NArgs: nargs::State<Arg>;
+        type NArgs: data_count::arg::State<Arg>;
         /// The number of arguments produced by this function.
-        type NRes: nres::State<Res>;
+        type NRes: data_count::res::State<Res>;
 
         /// Configure the resource to be represented
         /// by this type-state.
@@ -323,38 +317,38 @@ pub mod func {
 
     macro_rules! impls {
         // root / config
-        ( $( ($NAME:ident < $SCALE:ty >, $FUNC:ident, nargs::$NARGS:ident, nres::$NRES:ident, start( $($START_PARAM:ident),+ )) $(,)?)+ ) => {
+        ( $( ($NAME:ident < $SCALE:ty >, $FUNC:ident, $NARGS:ident, $NRES:ident, start( $($START_PARAM:ident),+ )) $(,)?)+ ) => {
             $(
                 impl<Arg, Res> State<Arg, Res> for $NAME
                 where
-                    Arg: arg_type::State,
-                    Res: res_type::State,
+                    Arg: data_type::arg::State,
+                    Res: data_type::res::State,
                 {
-                    type NArgs = nargs::$NARGS;
-                    type NRes = nres::$NRES;
+                    type NArgs = data_count::$NARGS;
+                    type NRes = data_count::$NRES;
 
                     #[inline]
                     fn set(w: &mut crate::stm32::cordic::csr::W) {
-                        <Self::NArgs as nargs::State<Arg>>::set(w);
-                        <Self::NRes as nres::State<Res>>::set(w);
+                        <Self::NArgs as data_count::arg::State<Arg>>::set(w);
+                        <Self::NRes as data_count::res::State<Res>>::set(w);
                         <$SCALE as scale::State>::set(w);
                         w.func().$FUNC();
                     }
                 }
 
-                impls!($NAME, nargs::$NARGS, start( $($START_PARAM),+ ));
-                impls!($NAME, nres::$NRES);
+                impls!($NAME, $NARGS, start( $($START_PARAM),+ ));
+                impls!($NAME, $NRES);
             )+
         };
 
         // impl start for one arg
-        ($NAME:ty, nargs::One, start( $PRIMARY:ident )) => {
+        ($NAME:ty, One, start( $PRIMARY:ident )) => {
             // arg_type: Q31
             // nargs: 1
             #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
-                Res: res_type::State,
+                Res: data_type::res::State,
                 Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
@@ -372,7 +366,7 @@ pub mod func {
             #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
-                Res: res_type::State,
+                Res: data_type::res::State,
                 Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
@@ -392,13 +386,13 @@ pub mod func {
         };
 
         // impl start for two args
-        ($NAME:ty, nargs::Two, start( $PRIMARY:ident, $SECONDARY:ident )) => {
+        ($NAME:ty, Two, start( $PRIMARY:ident, $SECONDARY:ident )) => {
             // arg_type: Q31
             // nargs: 2
             #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q31, Res, $NAME, Prec>
             where
-                Res: res_type::State,
+                Res: data_type::res::State,
                 Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
@@ -423,7 +417,7 @@ pub mod func {
             #[allow(private_bounds)]
             impl<Res, Prec> Cordic<data_type::Q15, Res, $NAME, Prec>
             where
-                Res: res_type::State,
+                Res: data_type::res::State,
                 Prec: prec::State,
             {
                 #[doc = "Start evaluating the configured function"]
@@ -443,13 +437,13 @@ pub mod func {
         };
 
         // impl result for one result
-        ($NAME:ty, nres::One) => {
+        ($NAME:ty, One) => {
             // res_type: Q31
             // nres: 1
             #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
-                Arg: arg_type::State,
+                Arg: data_type::arg::State,
                 Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
@@ -468,7 +462,7 @@ pub mod func {
             #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
-                Arg: arg_type::State,
+                Arg: data_type::arg::State,
                 Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
@@ -484,13 +478,13 @@ pub mod func {
         };
 
         // impl result for two results
-        ($NAME:ty, nres::Two) => {
+        ($NAME:ty, Two) => {
             // res_type: Q31
             // nres: 2
             #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q31, $NAME, Prec>
             where
-                Arg: arg_type::State,
+                Arg: data_type::arg::State,
                 Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
@@ -515,7 +509,7 @@ pub mod func {
             #[allow(private_bounds)]
             impl<Arg, Prec> Cordic<Arg, data_type::Q15, $NAME, Prec>
             where
-                Arg: arg_type::State,
+                Arg: data_type::arg::State,
                 Prec: prec::State,
             {
                 #[doc = "Read the evaluation result."]
@@ -542,53 +536,53 @@ pub mod func {
 
     macro_rules! impls_multi_scale {
         // root / config (almost identical to single scale)
-        ( $( ($NAME:ident < $( $SCALE:ty  $(,)? )+ >, $FUNC:ident, nargs::$NARGS:ident, nres::$NRES:ident, start $START_PARAM:tt ) $(,)?)+ ) => {
+        ( $( ($NAME:ident < $( $SCALE:ty  $(,)? )+ >, $FUNC:ident, $NARGS:ident, $NRES:ident, start $START_PARAM:tt ) $(,)?)+ ) => {
             $(
                 $(
                     impl<Arg, Res> State<Arg, Res> for $NAME<$SCALE>
                     where
-                        Arg: arg_type::State,
-                        Res: res_type::State,
+                        Arg: data_type::arg::State,
+                        Res: data_type::res::State,
                     {
-                        type NArgs = nargs::$NARGS;
-                        type NRes = nres::$NRES;
+                        type NArgs = data_count::$NARGS;
+                        type NRes = data_count::$NRES;
 
                         #[inline]
                         fn set(w: &mut crate::stm32::cordic::csr::W) {
-                            <Self::NArgs as nargs::State<Arg>>::set(w);
-                            <Self::NRes as nres::State<Res>>::set(w);
+                            <Self::NArgs as data_count::arg::State<Arg>>::set(w);
+                            <Self::NRes as data_count::res::State<Res>>::set(w);
                             <$SCALE as scale::State>::set(w);
                             w.func().$FUNC();
                         }
                     }
 
-                    impls!($NAME<$SCALE>, nargs::$NARGS, start $START_PARAM );
-                    impls!($NAME<$SCALE>, nres::$NRES);
+                    impls!($NAME<$SCALE>, $NARGS, start $START_PARAM );
+                    impls!($NAME<$SCALE>, $NRES);
                 )+
             )+
         };
     }
 
     impls! {
-        (Cos<scale::N0>, cosine, nargs::One, nres::One, start(angle)),
-        (Sin<scale::N0>, sine, nargs::One, nres::One, start(angle)),
-        (SinCos<scale::N0>, sine, nargs::One, nres::Two, start(angle)),
-        (CosM<scale::N0>, cosine, nargs::Two, nres::One, start(angle, modulus)),
-        (SinM<scale::N0>, sine, nargs::Two, nres::One, start(angle, modulus)),
-        (SinCosM<scale::N0>, sine, nargs::Two, nres::Two, start(angle, modulus)),
-        (ATan2<scale::N0>, phase, nargs::Two, nres::One, start(x, y)),
-        (Magnitude<scale::N0>, modulus, nargs::Two, nres::One, start(x, y)),
-        (ATan2Magnitude<scale::N0>, phase, nargs::Two, nres::Two, start(x, y)),
-        (CosH<scale::N1>, hyperbolic_cosine, nargs::One, nres::One, start(x)),
-        (SinH<scale::N1>, hyperbolic_sine, nargs::One, nres::One, start(x)),
-        (SinHCosH<scale::N1>, hyperbolic_cosine, nargs::One, nres::Two, start(x)),
-        (ATanH<scale::N1>, arctanh, nargs::One, nres::One, start(x)),
+        (Cos<scale::N0>, cosine, One, One, start(angle)),
+        (Sin<scale::N0>, sine, One, One, start(angle)),
+        (SinCos<scale::N0>, sine, One, Two, start(angle)),
+        (CosM<scale::N0>, cosine, Two, One, start(angle, modulus)),
+        (SinM<scale::N0>, sine, Two, One, start(angle, modulus)),
+        (SinCosM<scale::N0>, sine, Two, Two, start(angle, modulus)),
+        (ATan2<scale::N0>, phase, Two, One, start(x, y)),
+        (Magnitude<scale::N0>, modulus, Two, One, start(x, y)),
+        (ATan2Magnitude<scale::N0>, phase, Two, Two, start(x, y)),
+        (CosH<scale::N1>, hyperbolic_cosine, One, One, start(x)),
+        (SinH<scale::N1>, hyperbolic_sine, One, One, start(x)),
+        (SinHCosH<scale::N1>, hyperbolic_cosine, One, Two, start(x)),
+        (ATanH<scale::N1>, arctanh, One, One, start(x)),
     }
 
     impls_multi_scale! {
-        (ATan<scale::N0, scale::N1, scale::N2, scale::N3, scale::N4, scale::N5, scale::N6, scale::N7>, arctangent, nargs::One, nres::One, start(x)),
-        (Ln<scale::N1, scale::N2, scale::N3, scale::N4>, natural_logarithm, nargs::One, nres::One, start(x)),
-        (Sqrt<scale::N0, scale::N1, scale::N2>, square_root, nargs::One, nres::One, start(x)),
+        (ATan<scale::N0, scale::N1, scale::N2, scale::N3, scale::N4, scale::N5, scale::N6, scale::N7>, arctangent, One, One, start(x)),
+        (Ln<scale::N1, scale::N2, scale::N3, scale::N4>, natural_logarithm, One, One, start(x)),
+        (Sqrt<scale::N0, scale::N1, scale::N2>, square_root, One, One, start(x)),
     }
 }
 
@@ -675,8 +669,8 @@ pub mod prec {
 #[allow(private_bounds)]
 pub struct Cordic<Arg, Res, Func, Prec>
 where
-    Arg: arg_type::State,
-    Res: res_type::State,
+    Arg: data_type::arg::State,
+    Res: data_type::res::State,
     Func: func::State<Arg, Res>,
     Prec: prec::State,
 {
@@ -691,8 +685,8 @@ where
 #[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
-    Arg: arg_type::State,
-    Res: res_type::State,
+    Arg: data_type::arg::State,
+    Res: data_type::res::State,
     Func: func::State<Arg, Res>,
     Prec: prec::State,
 {
@@ -709,8 +703,8 @@ where
         self,
     ) -> Cordic<NewArg, NewRes, NewFunc, NewPrec>
     where
-        NewArg: arg_type::State,
-        NewRes: res_type::State,
+        NewArg: data_type::arg::State,
+        NewRes: data_type::res::State,
         NewFunc: func::State<NewArg, NewRes>,
         NewPrec: prec::State,
     {
@@ -758,8 +752,8 @@ pub type CordicReset = Cordic<data_type::Q31, data_type::Q31, func::Cos, prec::P
 
 impl<Arg, Res, Func, Prec> proto::IntoReset for Cordic<Arg, Res, Func, Prec>
 where
-    Arg: arg_type::State,
-    Res: res_type::State,
+    Arg: data_type::arg::State,
+    Res: data_type::res::State,
     Func: func::State<Arg, Res>,
     Prec: prec::State,
 {
@@ -775,8 +769,8 @@ where
 #[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
-    Arg: arg_type::State,
-    Res: res_type::State,
+    Arg: data_type::arg::State,
+    Res: data_type::res::State,
     Func: func::State<Arg, Res>,
     Prec: prec::State,
 {
@@ -797,8 +791,8 @@ where
 #[allow(private_bounds)]
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
-    Arg: arg_type::State,
-    Res: res_type::State,
+    Arg: data_type::arg::State,
+    Res: data_type::res::State,
     Func: func::State<Arg, Res>,
     Prec: prec::State,
 {
