@@ -58,35 +58,87 @@ impl Ext for CORDIC {
     }
 }
 
+/// Types which can be degraded to a lower-order representation.
+pub trait Degrade {
+    /// The degraded type.
+    type Degraded;
+
+    /// Convert into the degraded type.
+    fn degrade(self) -> Self::Degraded;
+}
+
 /// Traits and structures related to data types.
 pub mod types {
     use fixed::traits::Fixed;
 
     pub use fixed::types::{I1F15, I1F31};
 
+    use super::Degrade;
+
+    /// q1.31 fixed point number.
+    pub struct Q31(I1F31);
+    /// q1.15 fixed point number.
+    pub struct Q15(I1F15);
+
+    impl From<I1F31> for Q31 {
+        fn from(value: I1F31) -> Self {
+            Self(value)
+        }
+    }
+
+    impl From<I1F15> for Q15 {
+        fn from(value: I1F15) -> Self {
+            Self(value)
+        }
+    }
+
+    impl Degrade for Q31 {
+        type Degraded = <Self as DataType>::Inner;
+
+        fn degrade(self) -> Self::Degraded {
+            self.0
+        }
+    }
+
+    impl Degrade for Q15 {
+        type Degraded = <Self as DataType>::Inner;
+
+        fn degrade(self) -> Self::Degraded {
+            self.0
+        }
+    }
+
     /// Trait for newtypes to represent CORDIC argument or result data.
-    pub trait DataType: Fixed {
+    pub trait DataType: From<Self::Inner> + Degrade<Degraded = Self::Inner> {
+        /// Internal fixed point representation.
+        type Inner: Fixed;
+
         /// Convert to bits of the register width,
         fn to_register(self) -> u32;
         /// Convert from bits of the register width,
         fn from_register(bits: u32) -> Self;
     }
 
-    impl DataType for I1F31 {
+    impl DataType for Q31 {
+        type Inner = I1F31;
+
         fn to_register(self) -> u32 {
-            self.to_bits() as u32
+            self.degrade().to_bits() as u32
         }
+
         fn from_register(bits: u32) -> Self {
-            Self::from_bits(bits as i32)
+            Self(Self::Inner::from_bits(bits as i32))
         }
     }
 
-    impl DataType for I1F15 {
+    impl DataType for Q15 {
+        type Inner = I1F15;
+
         fn to_register(self) -> u32 {
-            self.to_bits() as u16 as u32
+            self.degrade().to_bits() as u16 as u32
         }
         fn from_register(bits: u32) -> Self {
-            Self::from_bits(bits as u16 as i16)
+            Self(Self::Inner::from_bits(bits as u16 as i16))
         }
     }
 
@@ -103,7 +155,7 @@ pub mod types {
             /// Configure the resource to be represented
             /// by this type-state.
             #[inline]
-            fn set<const O: u8>(w: crate::stm32::cordic::csr::ARGSIZE_W<O>) {
+            fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::ARGSIZE_W<OFFSET>) {
                 w.variant(Self::RAW);
             }
         }
@@ -119,8 +171,8 @@ pub mod types {
         }
 
         impls! {
-            (super::I1F31, Bits32),
-            (super::I1F15, Bits16),
+            (super::Q31, Bits32),
+            (super::Q15, Bits16),
         }
     }
 
@@ -137,7 +189,7 @@ pub mod types {
             /// Configure the resource to be represented
             /// by this type-state.
             #[inline]
-            fn set<const O: u8>(w: crate::stm32::cordic::csr::RESSIZE_W<O>) {
+            fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::RESSIZE_W<OFFSET>) {
                 w.variant(Self::RAW);
             }
         }
@@ -153,8 +205,8 @@ pub mod types {
         }
 
         impls! {
-            (super::I1F31, Bits32),
-            (super::I1F15, Bits16),
+            (super::Q31, Bits32),
+            (super::Q15, Bits16),
         }
     }
 }
@@ -225,7 +277,7 @@ pub mod func {
             type Raw = crate::stm32::cordic::csr::NARGS_A;
 
             pub(crate) trait State<T> {
-                fn set<const O: u8>(w: crate::stm32::cordic::csr::NARGS_W<O>);
+                fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::NARGS_W<OFFSET>);
             }
 
             impl<Arg, Count> State<Arg> for NReg<Arg, Count>
@@ -233,11 +285,15 @@ pub mod func {
                 Arg: types::arg::State,
                 Count: data_count::Property<Arg>,
             {
-                fn set<const O: u8>(w: crate::stm32::cordic::csr::NARGS_W<O>) {
-                    w.variant(match (Arg::RAW, Count::COUNT) {
-                        (types::arg::Raw::Bits32, data_count::Count::Two) => Raw::Num2,
-                        (_, _) => Raw::Num1,
-                    });
+                fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::NARGS_W<OFFSET>) {
+                    w.variant(
+                        const {
+                            match (Arg::RAW, Count::COUNT) {
+                                (types::arg::Raw::Bits32, data_count::Count::Two) => Raw::Num2,
+                                (_, _) => Raw::Num1,
+                            }
+                        },
+                    );
                 }
             }
         }
@@ -248,7 +304,7 @@ pub mod func {
             type Raw = crate::stm32::cordic::csr::NRES_A;
 
             pub(crate) trait State<T> {
-                fn set<const O: u8>(w: crate::stm32::cordic::csr::NRES_W<O>);
+                fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::NRES_W<OFFSET>);
             }
 
             impl<Res, Count> State<Res> for NReg<Res, Count>
@@ -256,11 +312,15 @@ pub mod func {
                 Res: types::res::State,
                 Count: data_count::Property<Res>,
             {
-                fn set<const O: u8>(w: crate::stm32::cordic::csr::NRES_W<O>) {
-                    w.variant(match (Res::RAW, Count::COUNT) {
-                        (types::res::Raw::Bits32, data_count::Count::Two) => Raw::Num2,
-                        (_, _) => Raw::Num1,
-                    });
+                fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::NRES_W<OFFSET>) {
+                    w.variant(
+                        const {
+                            match (Res::RAW, Count::COUNT) {
+                                (types::res::Raw::Bits32, data_count::Count::Two) => Raw::Num2,
+                                (_, _) => Raw::Num1,
+                            }
+                        },
+                    );
                 }
             }
         }
@@ -279,7 +339,7 @@ pub mod func {
             /// Configure the resource to be represented
             /// by this type-state.
             #[inline]
-            fn set<const O: u8>(w: crate::stm32::cordic::csr::SCALE_W<O>) {
+            fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::SCALE_W<OFFSET>) {
                 w.bits(<Self as State>::RAW);
             }
         }
@@ -325,13 +385,13 @@ pub mod func {
 
     /// Traits and structures related to the function signature.
     pub mod signature {
-        use super::{data_count, reg_count, types};
+        use super::{data_count, reg_count, types, Degrade};
 
         type WData = crate::stm32g4::Reg<crate::stm32::cordic::wdata::WDATA_SPEC>;
         type RData = crate::stm32g4::Reg<crate::stm32::cordic::rdata::RDATA_SPEC>;
 
         /// The signature is a property of the function type-state.
-        pub trait Property<T>
+        pub trait Property<T>: Degrade
         where
             T: types::DataType,
         {
@@ -379,6 +439,17 @@ pub mod func {
                 T: types::res::State,
             {
                 T::from_register(reg.read().res().bits())
+            }
+        }
+
+        impl<T> Degrade for (T, T)
+        where
+            T: types::DataType,
+        {
+            type Degraded = (T::Degraded, T::Degraded);
+
+            fn degrade(self) -> Self::Degraded {
+                (self.0.degrade(), self.1.degrade())
             }
         }
 
@@ -435,55 +506,61 @@ pub mod func {
     pub(crate) type Raw = crate::stm32::cordic::csr::FUNC_A;
 
     /// Trait for function type-states.
-    pub trait State<Arg, Res>
-    where
-        Arg: types::arg::State,
-        Res: types::res::State,
-    {
-        /// The number of arguments required by this function.
-        type Arguments: signature::Property<Arg>;
-        /// The number of arguments produced by this function.
-        type Results: signature::Property<Res>;
-
-        /// The appropriate scale for this function.
-        type Scale: scale::State;
-        /// The required argument register writes.
-        type NArgs: reg_count::arg::State<Arg>;
-        /// The required result register reads.
-        type NRes: reg_count::res::State<Res>;
-
+    pub trait State {
         /// Raw representation of the function.
         const RAW: Raw;
 
         /// Configure the resource to be represented
         /// by this type-state.
         #[inline]
-        fn set<const O: u8>(w: crate::stm32::cordic::csr::FUNC_W<O>) {
+        fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::FUNC_W<OFFSET>) {
             w.variant(Self::RAW);
         }
+    }
+
+    /// Define specific combinations
+    /// of states and properties for each function.
+    pub trait Feature<Arg, Res>: State
+    where
+        Arg: types::arg::State,
+        Res: types::res::State,
+    {
+        /// The number of arguments required.
+        type Arguments: signature::Property<Arg>;
+        /// The number of arguments produced.
+        type Results: signature::Property<Res>;
+
+        /// The operation to perform.
+        type Op: State;
+        /// The scale to be applied.
+        type Scale: scale::State;
+        /// The required argument register writes.
+        type NArgs: reg_count::arg::State<Arg>;
+        /// The required result register reads.
+        type NRes: reg_count::res::State<Res>;
     }
 
     impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
     where
         Arg: types::arg::State,
         Res: types::res::State,
-        Func: State<Arg, Res>,
+        Func: Feature<Arg, Res>,
         Prec: prec::State,
         Func::Arguments: signature::Property<Arg>,
         Func::Results: signature::Property<Res>,
     {
         /// Start the configured operation.
-        pub fn start(&mut self, arg: Func::Arguments) {
+        pub fn start(&mut self, args: impl Into<Func::Arguments>) {
             use signature::Property as _;
 
-            arg.write(&self.rb.wdata);
+            args.into().write(&self.rb.wdata);
         }
 
         /// Get the result of an operation.
-        pub fn result(&mut self) -> Func::Results {
+        pub fn result(&mut self) -> <Func::Results as Degrade>::Degraded {
             use signature::Property as _;
 
-            Func::Results::read(&self.rb.rdata)
+            Func::Results::read(&self.rb.rdata).degrade()
         }
     }
 
@@ -510,7 +587,6 @@ pub mod func {
     /// Arctangent of x.
     ///
     /// This function can be scaled by 0-7.
-
     pub struct ATan<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
@@ -525,14 +601,12 @@ pub mod func {
     /// Natural logarithm of x.
     ///
     /// This function can be scaled by 1-4.
-
     pub struct Ln<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
     /// Square root of x.
     ///
     /// This function can be scaled by 0-2.
-
     pub struct Sqrt<Scale: scale::State> {
         _scale: PhantomData<Scale>,
     }
@@ -540,7 +614,11 @@ pub mod func {
     macro_rules! impls {
         ( $( ($NAME:ident < $SCALE:ident >, $RAW:ident, $NARGS:ident, $NRES:ident, start( $($START_PARAM:ident),+ )) $(,)?)+ ) => {
             $(
-                impl<Arg, Res> State<Arg, Res> for $NAME
+                impl State for $NAME {
+                    const RAW: Raw = Raw::$RAW;
+                }
+
+                impl<Arg, Res> Feature<Arg, Res> for $NAME
                 where
                     Arg: types::arg::State,
                     Res: types::res::State,
@@ -548,11 +626,10 @@ pub mod func {
                     type Arguments = <data_count::$NARGS as data_count::Property<Arg>>::Signature;
                     type Results = <data_count::$NRES as data_count::Property<Res>>::Signature;
 
+                    type Op = Self;
                     type Scale = scale::$SCALE;
                     type NArgs = <Self::Arguments as signature::Property<Arg>>::NReg;
                     type NRes = <Self::Results as signature::Property<Res>>::NReg;
-
-                    const RAW: Raw = Raw::$RAW;
                 }
             )+
         };
@@ -563,7 +640,11 @@ pub mod func {
         ( $( ($NAME:ident < $( $SCALE:ident  $(,)? )+ >, $RAW:ident, $NARGS:ident, $NRES:ident, start $START_PARAM:tt ) $(,)?)+ ) => {
             $(
                 $(
-                    impl<Arg, Res> State<Arg, Res> for $NAME<scale::$SCALE>
+                    impl State for $NAME<scale::$SCALE> {
+                        const RAW: Raw = Raw::$RAW;
+                    }
+
+                    impl<Arg, Res> Feature<Arg, Res> for $NAME<scale::$SCALE>
                     where
                         Arg: types::arg::State,
                         Res: types::res::State,
@@ -571,11 +652,10 @@ pub mod func {
                         type Arguments = <data_count::$NARGS as data_count::Property<Arg>>::Signature;
                         type Results = <data_count::$NRES as data_count::Property<Res>>::Signature;
 
+                        type Op = Self;
                         type Scale = scale::$SCALE;
                         type NArgs = <Self::Arguments as signature::Property<Arg>>::NReg;
                         type NRes = <Self::Results as signature::Property<Res>>::NReg;
-
-                        const RAW: Raw = Raw::$RAW;
                     }
                 )+
             )+
@@ -606,7 +686,7 @@ pub mod func {
 
     /// Traits and structures for dynamic function operation.
     pub mod dynamic {
-        use super::{prec, signature, types, Cordic, State};
+        use super::{prec, signature, types, Cordic, Degrade, Feature};
 
         /// Any function can be invoked with this type-state.
         pub struct Any;
@@ -621,9 +701,12 @@ pub mod func {
             ///
             /// *Note: This employs the polling strategy.
             /// For less overhead, use static operations.*
-            fn run<Func>(&mut self, args: Func::Arguments) -> Func::Results
+            fn run<Func>(
+                &mut self,
+                args: impl Into<Func::Arguments>,
+            ) -> <Func::Results as Degrade>::Degraded
             where
-                Func: State<Arg, Res>;
+                Func: Feature<Arg, Res>;
         }
 
         impl<Arg, Res, Prec> Mode<Arg, Res> for Cordic<Arg, Res, Any, Prec>
@@ -632,16 +715,21 @@ pub mod func {
             Res: types::res::State,
             Prec: prec::State,
         {
-            fn run<Func>(&mut self, args: Func::Arguments) -> Func::Results
+            fn run<Func>(
+                &mut self,
+                args: impl Into<Func::Arguments>,
+            ) -> <Func::Results as Degrade>::Degraded
             where
-                Func: State<Arg, Res>,
+                Func: Feature<Arg, Res>,
             {
                 use signature::Property as _;
+
+                let args = args.into();
 
                 self.apply_config::<Arg, Res, Func, Prec>();
 
                 args.write(&self.rb.wdata);
-                self.when_ready(|cordic| Func::Results::read(&cordic.rb.rdata))
+                self.when_ready(|cordic| Func::Results::read(&cordic.rb.rdata).degrade())
             }
         }
     }
@@ -656,7 +744,7 @@ pub mod prec {
 
         /// Configure the resource to be represented
         /// by this type-state.
-        fn set<const O: u8>(w: crate::stm32::cordic::csr::PRECISION_W<O>);
+        fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::PRECISION_W<OFFSET>);
     }
 
     /// 4 iterations.
@@ -697,7 +785,7 @@ pub mod prec {
                     const BITS: u8 = $BITS;
 
                     #[inline]
-                    fn set<const O: u8>(w: crate::stm32::cordic::csr::PRECISION_W<O>) {
+                    fn set<const OFFSET: u8>(w: crate::stm32::cordic::csr::PRECISION_W<OFFSET>) {
                         // SAFETY: reliant on valid type-state
                         // implementations.
                         unsafe { w.bits(<Self as State>::BITS) };
@@ -751,7 +839,7 @@ where
     where
         NewArg: types::arg::State,
         NewRes: types::res::State,
-        NewFunc: func::State<NewArg, NewRes>,
+        NewFunc: func::Feature<NewArg, NewRes>,
         NewPrec: prec::State,
     {
         self.rb.csr.write(|w| {
@@ -786,7 +874,7 @@ where
     where
         NewArg: types::arg::State,
         NewRes: types::res::State,
-        NewFunc: func::State<NewArg, NewRes>,
+        NewFunc: func::Feature<NewArg, NewRes>,
         NewPrec: prec::State,
     {
         self.apply_config::<NewArg, NewRes, NewFunc, NewPrec>();
@@ -846,13 +934,13 @@ where
 }
 
 /// $RM0440 17.4.1
-pub type CordicReset = Cordic<types::I1F31, types::I1F31, func::Cos, prec::P20>;
+pub type CordicReset = Cordic<types::Q31, types::Q31, func::Cos, prec::P20>;
 
 impl<Arg, Res, Func, Prec> proto::IntoReset for Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
     Res: types::res::State,
-    Func: func::State<Arg, Res>,
+    Func: func::Feature<Arg, Res>,
     Prec: prec::State,
 {
     type Reset = CordicReset;
@@ -868,7 +956,7 @@ impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
     Res: types::res::State,
-    Func: func::State<Arg, Res>,
+    Func: func::Feature<Arg, Res>,
     Prec: prec::State,
 {
     /// Enable the result ready interrupt.
@@ -889,7 +977,7 @@ impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
     Res: types::res::State,
-    Func: func::State<Arg, Res>,
+    Func: func::Feature<Arg, Res>,
     Prec: prec::State,
 {
     /// Release the CORDIC resource binding as a noop.
