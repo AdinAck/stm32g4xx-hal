@@ -692,7 +692,6 @@ pub mod prec {
 }
 
 /// Cordic co-processor interface.
-
 pub struct Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
@@ -707,7 +706,6 @@ where
 }
 
 // root impl
-
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
@@ -831,7 +829,6 @@ where
 }
 
 // listen
-
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
@@ -853,7 +850,6 @@ where
 }
 
 // release
-
 impl<Arg, Res, Func, Prec> Cordic<Arg, Res, Func, Prec>
 where
     Arg: types::arg::State,
