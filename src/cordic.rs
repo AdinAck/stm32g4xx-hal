@@ -58,60 +58,21 @@ impl Ext for CORDIC {
     }
 }
 
-/// Types which can be degraded to a lower-order representation.
-pub trait Degrade {
-    /// The degraded type.
-    type Degraded;
-
-    /// Convert into the degraded type.
-    fn degrade(self) -> Self::Degraded;
-}
-
 /// Traits and structures related to data types.
 pub mod types {
     use fixed::traits::Fixed;
 
     pub use fixed::types::{I1F15, I1F31};
 
-    use super::Degrade;
-
-    /// q1.31 fixed point number.
-    pub struct Q31(I1F31);
     /// q1.15 fixed point number.
-    pub struct Q15(I1F15);
+    pub struct Q15;
+    /// q1.31 fixed point number.
+    pub struct Q31;
 
-    impl From<I1F31> for Q31 {
-        fn from(value: I1F31) -> Self {
-            Self(value)
-        }
-    }
-
-    impl From<I1F15> for Q15 {
-        fn from(value: I1F15) -> Self {
-            Self(value)
-        }
-    }
-
-    impl Degrade for Q31 {
-        type Degraded = <Self as DataType>::Inner;
-
-        fn degrade(self) -> Self::Degraded {
-            self.0
-        }
-    }
-
-    impl Degrade for Q15 {
-        type Degraded = <Self as DataType>::Inner;
-
-        fn degrade(self) -> Self::Degraded {
-            self.0
-        }
-    }
-
-    /// Trait for newtypes to represent CORDIC argument or result data.
-    pub trait DataType: From<Self::Inner> + Degrade<Degraded = Self::Inner> {
-        /// Internal fixed point representation.
-        type Inner: Fixed;
+    /// Extension trait for fixed point types.
+    pub trait Ext: Fixed {
+        /// Type-state representing this type.
+        type Repr: DataType<Inner = Self>;
 
         /// Convert to bits of the register width,
         fn to_register(self) -> u32;
@@ -119,27 +80,41 @@ pub mod types {
         fn from_register(bits: u32) -> Self;
     }
 
-    impl DataType for Q31 {
-        type Inner = I1F31;
+    impl Ext for I1F15 {
+        type Repr = Q15;
 
         fn to_register(self) -> u32 {
-            self.degrade().to_bits() as u32
+            self.to_bits() as u16 as u32
+        }
+        fn from_register(bits: u32) -> Self {
+            Self::from_bits(bits as u16 as i16)
+        }
+    }
+
+    impl Ext for I1F31 {
+        type Repr = Q31;
+
+        fn to_register(self) -> u32 {
+            self.to_bits() as u32
         }
 
         fn from_register(bits: u32) -> Self {
-            Self(Self::Inner::from_bits(bits as i32))
+            Self::from_bits(bits as i32)
         }
+    }
+
+    /// Trait for newtypes to represent CORDIC argument or result data.
+    pub trait DataType {
+        /// Internal fixed point representation.
+        type Inner: Ext<Repr = Self>;
     }
 
     impl DataType for Q15 {
         type Inner = I1F15;
+    }
 
-        fn to_register(self) -> u32 {
-            self.degrade().to_bits() as u16 as u32
-        }
-        fn from_register(bits: u32) -> Self {
-            Self(Self::Inner::from_bits(bits as u16 as i16))
-        }
+    impl DataType for Q31 {
+        type Inner = I1F31;
     }
 
     /// Traits and structures related to argument type-states.
@@ -234,7 +209,7 @@ pub mod func {
         where
             T: types::DataType,
         {
-            type Signature: super::signature::Property<T>;
+            type Signature: super::signature::Property<T::Inner>;
 
             const COUNT: Count;
         }
@@ -243,7 +218,7 @@ pub mod func {
         where
             T: types::DataType,
         {
-            type Signature = T;
+            type Signature = T::Inner;
 
             const COUNT: Count = Count::One;
         }
@@ -252,7 +227,7 @@ pub mod func {
         where
             T: types::DataType,
         {
-            type Signature = (T, T);
+            type Signature = (T::Inner, T::Inner);
 
             const COUNT: Count = Count::Two;
         }
@@ -385,15 +360,17 @@ pub mod func {
 
     /// Traits and structures related to the function signature.
     pub mod signature {
-        use super::{data_count, reg_count, types, Degrade};
+        use super::{data_count, reg_count, types};
+        use types::arg::State as _;
+        use types::res::State as _;
 
         type WData = crate::stm32g4::Reg<crate::stm32::cordic::wdata::WDATA_SPEC>;
         type RData = crate::stm32g4::Reg<crate::stm32::cordic::rdata::RDATA_SPEC>;
 
         /// The signature is a property of the function type-state.
-        pub trait Property<T>: Degrade
+        pub trait Property<T>
         where
-            T: types::DataType,
+            T: types::Ext,
         {
             /// Number of register operations required.
             type NReg;
@@ -401,25 +378,25 @@ pub mod func {
             /// Write arguments to the argument register.
             fn write(self, reg: &WData)
             where
-                T: types::arg::State;
+                T::Repr: types::arg::State;
 
             /// Read results from the result register.
             fn read(reg: &RData) -> Self
             where
-                T: types::res::State;
+                T::Repr: types::res::State;
         }
 
         impl<T> Property<T> for T
         where
-            T: types::DataType,
+            T: types::Ext,
         {
-            type NReg = reg_count::NReg<T, data_count::One>;
+            type NReg = reg_count::NReg<T::Repr, data_count::One>;
 
             fn write(self, reg: &WData)
             where
-                T: types::arg::State,
+                T::Repr: types::arg::State,
             {
-                let data = match const { T::RAW } {
+                let data = match const { T::Repr::RAW } {
                     types::arg::Raw::Bits16 => {
                         // $RM0440 17.4.2
                         // since we are only using the lower half of the register,
@@ -436,36 +413,25 @@ pub mod func {
 
             fn read(reg: &RData) -> Self
             where
-                T: types::res::State,
+                T::Repr: types::res::State,
             {
                 T::from_register(reg.read().res().bits())
             }
         }
 
-        impl<T> Degrade for (T, T)
-        where
-            T: types::DataType,
-        {
-            type Degraded = (T::Degraded, T::Degraded);
-
-            fn degrade(self) -> Self::Degraded {
-                (self.0.degrade(), self.1.degrade())
-            }
-        }
-
         impl<T> Property<T> for (T, T)
         where
-            T: types::DataType,
+            T: types::Ext,
         {
-            type NReg = reg_count::NReg<T, data_count::Two>;
+            type NReg = reg_count::NReg<T::Repr, data_count::Two>;
 
             fn write(self, reg: &WData)
             where
-                T: types::arg::State,
+                T::Repr: types::arg::State,
             {
                 let (primary, secondary) = self;
 
-                match const { T::RAW } {
+                match const { T::Repr::RAW } {
                     types::arg::Raw::Bits16 => {
                         // $RM0440 17.4.2
                         reg.write(|w| {
@@ -482,9 +448,9 @@ pub mod func {
 
             fn read(reg: &RData) -> Self
             where
-                T: types::res::State,
+                T::Repr: types::res::State,
             {
-                match const { T::RAW } {
+                match const { T::Repr::RAW } {
                     types::res::Raw::Bits16 => {
                         let data = reg.read().res().bits();
 
@@ -526,9 +492,9 @@ pub mod func {
         Res: types::res::State,
     {
         /// The number of arguments required.
-        type Arguments: signature::Property<Arg>;
+        type Arguments: signature::Property<Arg::Inner>;
         /// The number of arguments produced.
-        type Results: signature::Property<Res>;
+        type Results: signature::Property<Res::Inner>;
 
         /// The operation to perform.
         type Op: State;
@@ -546,21 +512,21 @@ pub mod func {
         Res: types::res::State,
         Func: Feature<Arg, Res>,
         Prec: prec::State,
-        Func::Arguments: signature::Property<Arg>,
-        Func::Results: signature::Property<Res>,
+        Func::Arguments: signature::Property<Arg::Inner>,
+        Func::Results: signature::Property<Res::Inner>,
     {
         /// Start the configured operation.
-        pub fn start(&mut self, args: impl Into<Func::Arguments>) {
+        pub fn start(&mut self, args: Func::Arguments) {
             use signature::Property as _;
 
-            args.into().write(&self.rb.wdata);
+            args.write(&self.rb.wdata);
         }
 
         /// Get the result of an operation.
-        pub fn result(&mut self) -> <Func::Results as Degrade>::Degraded {
+        pub fn result(&mut self) -> Func::Results {
             use signature::Property as _;
 
-            Func::Results::read(&self.rb.rdata).degrade()
+            Func::Results::read(&self.rb.rdata)
         }
     }
 
@@ -628,8 +594,8 @@ pub mod func {
 
                     type Op = Self;
                     type Scale = scale::$SCALE;
-                    type NArgs = <Self::Arguments as signature::Property<Arg>>::NReg;
-                    type NRes = <Self::Results as signature::Property<Res>>::NReg;
+                    type NArgs = <Self::Arguments as signature::Property<Arg::Inner>>::NReg;
+                    type NRes = <Self::Results as signature::Property<Res::Inner>>::NReg;
                 }
             )+
         };
@@ -654,8 +620,8 @@ pub mod func {
 
                         type Op = Self;
                         type Scale = scale::$SCALE;
-                        type NArgs = <Self::Arguments as signature::Property<Arg>>::NReg;
-                        type NRes = <Self::Results as signature::Property<Res>>::NReg;
+                        type NArgs = <Self::Arguments as signature::Property<Arg::Inner>>::NReg;
+                        type NRes = <Self::Results as signature::Property<Res::Inner>>::NReg;
                     }
                 )+
             )+
@@ -686,7 +652,7 @@ pub mod func {
 
     /// Traits and structures for dynamic function operation.
     pub mod dynamic {
-        use super::{prec, signature, types, Cordic, Degrade, Feature};
+        use super::{prec, signature, types, Cordic, Feature};
 
         /// Any function can be invoked with this type-state.
         pub struct Any;
@@ -701,10 +667,7 @@ pub mod func {
             ///
             /// *Note: This employs the polling strategy.
             /// For less overhead, use static operations.*
-            fn run<Func>(
-                &mut self,
-                args: impl Into<Func::Arguments>,
-            ) -> <Func::Results as Degrade>::Degraded
+            fn run<Func>(&mut self, args: Func::Arguments) -> Func::Results
             where
                 Func: Feature<Arg, Res>;
         }
@@ -715,21 +678,16 @@ pub mod func {
             Res: types::res::State,
             Prec: prec::State,
         {
-            fn run<Func>(
-                &mut self,
-                args: impl Into<Func::Arguments>,
-            ) -> <Func::Results as Degrade>::Degraded
+            fn run<Func>(&mut self, args: Func::Arguments) -> Func::Results
             where
                 Func: Feature<Arg, Res>,
             {
                 use signature::Property as _;
 
-                let args = args.into();
-
                 self.apply_config::<Arg, Res, Func, Prec>();
 
                 args.write(&self.rb.wdata);
-                self.when_ready(|cordic| Func::Results::read(&cordic.rb.rdata).degrade())
+                self.when_ready(|cordic| Func::Results::read(&cordic.rb.rdata))
             }
         }
     }
