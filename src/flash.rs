@@ -69,16 +69,14 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
 
         // Write the OPT Keys to the OPTKEYR register
         unsafe {
-            self.flash
-                ._optkeyr
-                .optkeyr()
-                .write(|w| w.optkeyr().bits(OPT_KEY1));
+            self.flash._optkeyr.optkeyr().write(|w| {
+                w.optkeyr().bits(OPT_KEY1);
+            });
         }
         unsafe {
-            self.flash
-                ._optkeyr
-                .optkeyr()
-                .write(|w| w.optkeyr().bits(OPT_KEY2));
+            self.flash._optkeyr.optkeyr().write(|w| {
+                w.optkeyr().bits(OPT_KEY2);
+            });
         }
 
         // Verify success
@@ -98,10 +96,14 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
         // order of these writes or the control register will be permanently
         // locked out until reset.
         unsafe {
-            self.flash.keyr.keyr().write(|w| w.keyr().bits(KEY1));
+            self.flash.keyr.keyr().write(|w| {
+                w.keyr().bits(KEY1);
+            });
         }
         unsafe {
-            self.flash.keyr.keyr().write(|w| w.keyr().bits(KEY2));
+            self.flash.keyr.keyr().write(|w| {
+                w.keyr().bits(KEY2);
+            });
         }
 
         // Verify success
@@ -116,7 +118,9 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
         // Set lock bit
-        self.flash.cr.cr().modify(|_, w| w.lock().set_bit());
+        self.flash.cr.cr().modify(|_, w| {
+            w.lock().set_bit();
+        });
 
         // Verify success
         match self.flash.cr.cr().read().lock().bit_is_set() {
@@ -163,7 +167,9 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
         self.unlock()?;
 
         // Set Page Erase
-        self.flash.cr.cr().modify(|_, w| w.per().set_bit());
+        self.flash.cr.cr().modify(|_, w| {
+            w.per().set_bit();
+        });
 
         let page = start_offset / SECTOR_SZ_KB;
 
@@ -173,14 +179,15 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
         // set the STRT bit in the CR below. The address is validated by the
         // call to self.valid_address() above.
         unsafe {
-            self.flash
-                .cr
-                .cr()
-                .modify(|_, w| w.pnb().bits(page.try_into().unwrap()));
+            self.flash.cr.cr().modify(|_, w| {
+                w.pnb().bits(page.try_into().unwrap());
+            });
         }
 
         // Start Operation
-        self.flash.cr.cr().modify(|_, w| w.strt().set_bit());
+        self.flash.cr.cr().modify(|_, w| {
+            w.strt().set_bit();
+        });
 
         // Wait for operation to finish
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
@@ -189,13 +196,17 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
         let sr = self.flash.sr.sr().read();
 
         // Remove Page Erase Operation bit
-        self.flash.cr.cr().modify(|_, w| w.per().clear_bit());
+        self.flash.cr.cr().modify(|_, w| {
+            w.per().clear_bit();
+        });
 
         // Re-lock flash
         self.lock()?;
 
         if sr.wrperr().bit_is_set() {
-            self.flash.sr.sr().modify(|_, w| w.wrperr().set_bit());
+            self.flash.sr.sr().modify(|_, w| {
+                w.wrperr().set_bit();
+            });
             Err(Error::EraseError)
         } else {
             if self.verify {
@@ -299,7 +310,9 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
             }
 
             // Set Page Programming to 1
-            self.flash.cr.cr().modify(|_, w| w.pg().set_bit());
+            self.flash.cr.cr().modify(|_, w| {
+                w.pg().set_bit();
+            });
 
             while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
@@ -311,16 +324,22 @@ impl<'a, const SECTOR_SZ_KB: u32> FlashWriter<'a, SECTOR_SZ_KB> {
             while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
             // Set Page Programming to 0
-            self.flash.cr.cr().modify(|_, w| w.pg().clear_bit());
+            self.flash.cr.cr().modify(|_, w| {
+                w.pg().clear_bit();
+            });
 
             // Check for errors
             if self.flash.sr.sr().read().pgaerr().bit_is_set() {
-                self.flash.sr.sr().modify(|_, w| w.pgaerr().clear_bit());
+                self.flash.sr.sr().modify(|_, w| {
+                    w.pgaerr().clear_bit();
+                });
 
                 self.lock()?;
                 return Err(Error::ProgrammingError);
             } else if self.flash.sr.sr().read().wrperr().bit_is_set() {
-                self.flash.sr.sr().modify(|_, w| w.wrperr().clear_bit());
+                self.flash.sr.sr().modify(|_, w| {
+                    w.wrperr().clear_bit();
+                });
 
                 self.lock()?;
                 return Err(Error::WriteError);
@@ -465,7 +484,7 @@ pub struct ACR {
 impl ACR {
     pub(crate) fn acr(&mut self) -> &flash::ACR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).acr }
+        unsafe { &(*FLASH::ptr()).acr() }
     }
 }
 
@@ -478,7 +497,7 @@ pub struct CR {
 impl CR {
     pub(crate) fn cr(&mut self) -> &flash::CR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).cr }
+        unsafe { &(*FLASH::ptr()).cr() }
     }
 }
 
@@ -491,7 +510,7 @@ pub struct ECCR {
 impl ECCR {
     pub(crate) fn eccr(&mut self) -> &flash::ECCR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).eccr }
+        unsafe { &(*FLASH::ptr()).eccr() }
     }
 }
 
@@ -504,7 +523,7 @@ pub struct KEYR {
 impl KEYR {
     pub(crate) fn keyr(&mut self) -> &flash::KEYR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).keyr }
+        unsafe { &(*FLASH::ptr()).keyr() }
     }
 }
 
@@ -517,7 +536,7 @@ pub struct OPTKEYR {
 impl OPTKEYR {
     pub(crate) fn optkeyr(&mut self) -> &flash::OPTKEYR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).optkeyr }
+        unsafe { &(*FLASH::ptr()).optkeyr() }
     }
 }
 
@@ -530,7 +549,7 @@ pub struct OPTR {
 impl OPTR {
     pub(crate) fn optr(&mut self) -> &flash::OPTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).optr }
+        unsafe { &(*FLASH::ptr()).optr() }
     }
 }
 
@@ -543,7 +562,7 @@ pub struct PCROP1SR {
 impl PCROP1SR {
     pub(crate) fn pcrop1sr(&mut self) -> &flash::PCROP1SR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).pcrop1sr }
+        unsafe { &(*FLASH::ptr()).pcrop1sr() }
     }
 }
 
@@ -556,7 +575,7 @@ pub struct PCROP1ER {
 impl PCROP1ER {
     pub(crate) fn pcrop1er(&mut self) -> &flash::PCROP1ER {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).pcrop1er }
+        unsafe { &(*FLASH::ptr()).pcrop1er() }
     }
 }
 
@@ -569,7 +588,7 @@ pub struct PDKEYR {
 impl PDKEYR {
     pub(crate) fn pdkeyr(&mut self) -> &flash::PDKEYR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).pdkeyr }
+        unsafe { &(*FLASH::ptr()).pdkeyr() }
     }
 }
 
@@ -582,7 +601,7 @@ pub struct SEC1R {
 impl SEC1R {
     pub(crate) fn sec1r(&mut self) -> &flash::SEC1R {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).sec1r }
+        unsafe { &(*FLASH::ptr()).sec1r() }
     }
 }
 
@@ -595,7 +614,7 @@ pub struct SR {
 impl SR {
     pub(crate) fn sr(&mut self) -> &flash::SR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).sr }
+        unsafe { &(*FLASH::ptr()).sr() }
     }
 }
 
@@ -608,7 +627,7 @@ pub struct WRP1AR {
 impl WRP1AR {
     pub(crate) fn wrp1ar(&mut self) -> &flash::WRP1AR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).wrp1ar }
+        unsafe { &(*FLASH::ptr()).wrp1ar() }
     }
 }
 
@@ -621,6 +640,6 @@ pub struct WRP1BR {
 impl WRP1BR {
     pub(crate) fn wrp1br(&mut self) -> &flash::WRP1BR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).wrp1br }
+        unsafe { &(*FLASH::ptr()).wrp1br() }
     }
 }

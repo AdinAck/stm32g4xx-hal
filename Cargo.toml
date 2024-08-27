@@ -13,7 +13,7 @@ version = "0.0.2"
 
 [dependencies]
 nb = "0.1.1"
-stm32g4 = "0.15.1"
+stm32g4 = { path = "/Users/adinack/Projects/stm32-rs-nightlies/stm32g4" }
 paste = "1.0"
 bitflags = "1.2"
 vcell = "0.1"
@@ -91,6 +91,7 @@ stm32g4a1 = ["stm32g4/stm32g4a1"]
 
 log-itm = ["cortex-m-log/itm"]
 log-rtt = []
+defmt-logging = ["defmt"]
 log-semihost = ["cortex-m-log/semihosting"]
 
 defmt = ["dep:defmt", "fugit/defmt"]

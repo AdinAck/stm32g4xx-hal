@@ -99,23 +99,23 @@ macro_rules! exti_erased {
                 let offset = 4 * (self.i % 4);
                 match self.i {
                     0..=3 => {
-                        syscfg.exticr1.modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                        syscfg.exticr1().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset));
                         });
                     }
                     4..=7 => {
-                        syscfg.exticr2.modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                        syscfg.exticr2().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset));
                         });
                     }
                     8..=11 => {
-                        syscfg.exticr3.modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                        syscfg.exticr3().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset));
                         });
                     }
                     12..=15 => {
-                        syscfg.exticr4.modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                        syscfg.exticr4().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset));
                         });
                     }
                     _ => {}
@@ -126,46 +126,58 @@ macro_rules! exti_erased {
             fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: SignalEdge) {
                 match edge {
                     SignalEdge::Rising => {
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << self.i));
+                        });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() & !(1 << self.i));
+                        });
                     }
                     SignalEdge::Falling => {
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << self.i));
+                        });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() & !(1 << self.i));
+                        });
                     }
                     SignalEdge::RisingFalling => {
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << self.i));
+                        });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << self.i));
+                        });
                     }
                 }
             }
 
             /// Enable external interrupts from this pin.
             fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                exti.imr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                exti.imr1().modify(|r, w| unsafe {
+                    w.bits(r.bits() | (1 << self.i));
+                });
             }
 
             /// Disable external interrupts from this pin
             fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                exti.imr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                exti.imr1().modify(|r, w| unsafe {
+                    w.bits(r.bits() & !(1 << self.i));
+                });
             }
 
             /// Clear the interrupt pending bit for this pin
             fn clear_interrupt_pending_bit(&mut self) {
-                unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << self.i)) };
+                unsafe {
+                    (*EXTI::ptr()).pr1().write(|w| {
+                        w.bits(1 << self.i);
+                    })
+                };
             }
 
             /// Reads the interrupt pending bit for this pin
             fn check_interrupt(&self) -> bool {
-                unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << self.i)) != 0 }
+                unsafe { ((*EXTI::ptr()).pr1().read().bits() & (1 << self.i)) != 0 }
             }
         }
     };
@@ -177,10 +189,10 @@ macro_rules! exti {
             /// Configure EXTI Line $i to trigger from this pin.
             fn make_interrupt_source(&mut self, syscfg: &mut SysCfg) {
                 let offset = 4 * ($i % 4);
-                syscfg.$exticri.modify(|r, w| unsafe {
+                syscfg.$exticri().modify(|r, w| unsafe {
                     let mut exticr = r.bits();
                     exticr = (exticr & !(0xf << offset)) | ($extigpionr << offset); //FIXME: clears other pins
-                    w.bits(exticr)
+                    w.bits(exticr);
                 });
             }
 
@@ -188,46 +200,58 @@ macro_rules! exti {
             fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: SignalEdge) {
                 match edge {
                     SignalEdge::Rising => {
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << $i));
+                        });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() & !(1 << $i));
+                        });
                     }
                     SignalEdge::Falling => {
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << $i));
+                        });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() & !(1 << $i));
+                        });
                     }
                     SignalEdge::RisingFalling => {
-                        exti.rtsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                        exti.ftsr1
-                            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        exti.rtsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << $i));
+                        });
+                        exti.ftsr1().modify(|r, w| unsafe {
+                            w.bits(r.bits() | (1 << $i));
+                        });
                     }
                 }
             }
 
             /// Enable external interrupts from this pin.
             fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                exti.imr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                exti.imr1().modify(|r, w| unsafe {
+                    w.bits(r.bits() | (1 << $i));
+                });
             }
 
             /// Disable external interrupts from this pin
             fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                exti.imr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                exti.imr1().modify(|r, w| unsafe {
+                    w.bits(r.bits() & !(1 << $i));
+                });
             }
 
             /// Clear the interrupt pending bit for this pin
             fn clear_interrupt_pending_bit(&mut self) {
-                unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << $i)) };
+                unsafe {
+                    (*EXTI::ptr()).pr1().write(|w| {
+                        w.bits(1 << $i);
+                    })
+                };
             }
 
             /// Reads the interrupt pending bit for this pin
             fn check_interrupt(&self) -> bool {
-                unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << $i)) != 0 }
+                unsafe { ((*EXTI::ptr()).pr1().read().bits() & (1 << $i)) != 0 }
             }
         }
     };
@@ -257,7 +281,7 @@ macro_rules! gpio {
                 type Parts = Parts;
 
                 fn split(self, rcc: &mut Rcc) -> Parts {
-                    rcc.rb.ahb2enr.modify(|_, w| w.$iopxenr().set_bit());
+                    rcc.rb.ahb2enr().modify(|_, w| {w.$iopxenr().set_bit();});
                     Parts {
                         $(
                             $pxi: $PXi { _mode: PhantomData },
@@ -277,13 +301,13 @@ macro_rules! gpio {
 
                 fn set_high(&mut self) -> Result<(), ()> {
                     // NOTE(unsafe) atomic write to a stateless register
-                    unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << self.i)) };
+                    unsafe { (*$GPIOX::ptr()).bsrr().write(|w| {w.bits(1 << self.i);}) };
                     Ok(())
                 }
 
                 fn set_low(&mut self) -> Result<(), ()> {
                     // NOTE(unsafe) atomic write to a stateless register
-                    unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (self.i + 16))) };
+                    unsafe { (*$GPIOX::ptr()).bsrr().write(|w| {w.bits(1 << (self.i + 16));}) };
                     Ok(())
                 }
             }
@@ -296,7 +320,7 @@ macro_rules! gpio {
 
                 fn is_set_low(&self) -> Result<bool, ()> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let is_set_low = unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << self.i) == 0 };
+                    let is_set_low = unsafe { (*$GPIOX::ptr()).odr().read().bits() & (1 << self.i) == 0 };
                     Ok(is_set_low)
                 }
             }
@@ -314,7 +338,7 @@ macro_rules! gpio {
 
                 fn is_low(&self) -> Result<bool, ()>  {
                     // NOTE(unsafe) atomic read with no side effects
-                    let is_low = unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 };
+                    let is_low = unsafe { (*$GPIOX::ptr()).idr().read().bits() & (1 << self.i) == 0 };
                     Ok(is_low)
                 }
             }
@@ -329,7 +353,7 @@ macro_rules! gpio {
 
                 fn is_low(&self) -> Result<bool, ()> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let is_low = unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 };
+                    let is_low = unsafe { (*$GPIOX::ptr()).idr().read().bits() & (1 << self.i) == 0 };
                     Ok(is_low)
                 }
             }
@@ -383,11 +407,11 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             })
                         };
                         $PXi { _mode: PhantomData }
@@ -398,11 +422,11 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             })
                         };
                         $PXi { _mode: PhantomData }
@@ -413,11 +437,11 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             })
                         };
                         $PXi { _mode: PhantomData }
@@ -428,11 +452,11 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b11 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b11 << offset));
                             });
                         }
                         $PXi { _mode: PhantomData }
@@ -443,14 +467,14 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             });
-                            gpio.otyper.modify(|r, w| {
-                                w.bits(r.bits() | (0b1 << $i))
+                            gpio.otyper().modify(|r, w| {
+                                w.bits(r.bits() | (0b1 << $i));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset));
                             })
                         };
                         $PXi { _mode: PhantomData }
@@ -461,14 +485,14 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             });
-                            gpio.otyper.modify(|r, w| {
-                                w.bits(r.bits() & !(0b1 << $i))
+                            gpio.otyper().modify(|r, w| {
+                                w.bits(r.bits() & !(0b1 << $i));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b01 << offset));
                             })
                         };
                         $PXi { _mode: PhantomData }
@@ -479,11 +503,11 @@ macro_rules! gpio {
                         let offset = 2 * $i;
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
-                            gpio.pupdr.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.pupdr().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits(r.bits() & !(0b11 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits(r.bits() & !(0b11 << offset));
                             })
                         };
                         exti.listen(Event::from_code($i), edge);
@@ -494,8 +518,8 @@ macro_rules! gpio {
                     pub fn set_speed(self, speed: Speed) -> Self {
                         let offset = 2 * $i;
                         unsafe {
-                            (*$GPIOX::ptr()).ospeedr.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | ((speed as u32) << offset))
+                            (*$GPIOX::ptr()).ospeedr().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | ((speed as u32) << offset));
                             })
                         }
                         self
@@ -508,20 +532,20 @@ macro_rules! gpio {
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
                             if offset2 < 32 {
-                                gpio.afrl.modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2))
+                                gpio.afrl().modify(|r, w| {
+                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2));
                                 });
                             } else {
                                 let offset2 = offset2 - 32;
-                                gpio.afrh.modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2))
+                                gpio.afrh().modify(|r, w| {
+                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2));
                                 });
                             }
-                            gpio.moder.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset));
                             });
-                            gpio.otyper.modify(|r, w| {
-                                w.bits(r.bits() & !(0b1 << $i))
+                            gpio.otyper().modify(|r, w| {
+                                w.bits(r.bits() & !(0b1 << $i));
                             });
                         }
                         $PXi { _mode: PhantomData }
@@ -534,20 +558,20 @@ macro_rules! gpio {
                         unsafe {
                             let gpio = &(*$GPIOX::ptr());
                             if offset2 < 32 {
-                                gpio.afrl.modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2))
+                                gpio.afrl().modify(|r, w| {
+                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2));
                                 });
                             } else {
                                 let offset2 = offset2 - 32;
-                                gpio.afrh.modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2))
+                                gpio.afrh().modify(|r, w| {
+                                    w.bits((r.bits() & !(0b1111 << offset2)) | (mode << offset2));
                                 });
                             }
-                            gpio.otyper.modify(|r, w| {
-                                w.bits(r.bits() | (0b1 << $i))
+                            gpio.otyper().modify(|r, w| {
+                                w.bits(r.bits() | (0b1 << $i));
                             });
-                            gpio.moder.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset))
+                            gpio.moder().modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (0b10 << offset));
                             });
                         }
                         $PXi { _mode: PhantomData }
@@ -569,13 +593,13 @@ macro_rules! gpio {
 
                     fn set_high(&mut self) -> Result<(), ()> {
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) };
+                        unsafe { (*$GPIOX::ptr()).bsrr().write(|w| {w.bits(1 << $i);}) };
                         Ok(())
                     }
 
                     fn set_low(&mut self) -> Result<(), ()>{
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << ($i + 16))) };
+                        unsafe { (*$GPIOX::ptr()).bsrr().write(|w| {w.bits(1 << ($i + 16));}) };
                         Ok(())
                     }
                 }
@@ -588,7 +612,7 @@ macro_rules! gpio {
 
                     fn is_set_low(&self) -> Result<bool, ()> {
                         // NOTE(unsafe) atomic read with no side effects
-                        let is_set_low = unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 };
+                        let is_set_low = unsafe { (*$GPIOX::ptr()).odr().read().bits() & (1 << $i) == 0 };
                         Ok(is_set_low)
                     }
                 }
@@ -606,7 +630,7 @@ macro_rules! gpio {
 
                     fn is_low(&self) -> Result<bool, ()>  {
                         // NOTE(unsafe) atomic read with no side effects
-                        let is_low = unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 };
+                        let is_low = unsafe { (*$GPIOX::ptr()).idr().read().bits() & (1 << $i) == 0 };
                         Ok(is_low)
                     }
                 }
@@ -631,7 +655,7 @@ macro_rules! gpio {
 
                     fn is_low(&self) -> Result<bool, ()> {
                         // NOTE(unsafe) atomic read with no side effects
-                        let is_low = unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 };
+                        let is_low = unsafe { (*$GPIOX::ptr()).idr().read().bits() & (1 << $i) == 0 };
                         Ok(is_low)
                     }
                 }

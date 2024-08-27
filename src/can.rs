@@ -55,15 +55,13 @@ where
     {
         Self::enable(&rcc.rb);
 
-        if rcc.rb.ccipr.read().fdcansel().is_hse() {
+        if rcc.rb.ccipr().read().fdcansel().is_hse() {
             // Select P clock as FDCAN clock source
-            rcc.rb.ccipr.modify(|_, w| {
+            rcc.rb.ccipr().modify(|_, w| {
                 // This is sound, as `FdCanClockSource` only contains valid values for this field.
                 unsafe {
                     w.fdcansel().bits(FdCanClockSource::PCLK as u8);
                 }
-
-                w
             });
         }
 
