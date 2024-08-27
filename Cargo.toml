@@ -24,7 +24,7 @@ embedded-hal-02 = { package = "embedded-hal", version = "0.2.7", features = [
 ] }
 embedded-hal-1 = { package = "embedded-hal", version = "1.0" }
 proto-hal = { path = "/Users/adinack/Projects/proto-hal" }
-fixed = "1.28.0"
+fixed = { version = "1.28.0", optional = true }
 
 [dependencies.cortex-m]
 version = "0.7.7"
@@ -96,6 +96,8 @@ log-semihost = ["cortex-m-log/semihosting"]
 
 defmt = ["dep:defmt", "fugit/defmt"]
 
+cordic = ["dep:fixed"]
+
 [profile.dev]
 codegen-units = 1
 debug = true
@@ -111,3 +113,7 @@ lto = true
 [[example]]
 name = "flash_with_rtic"
 required-features = ["stm32g474"]
+
+[[example]]
+name = "cordic"
+required-features = ["cordic"]
