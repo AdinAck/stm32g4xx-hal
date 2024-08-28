@@ -453,33 +453,15 @@ pub(crate) mod func {
         fn set(w: csr::FUNC_W<csr::CSRrs>) -> Self;
     }
 
-    // function types with argument count encoded
-
-    /// Cosine of an angle theta divided by pi.
     pub struct Cos;
-    /// Sine of an angle theta divided by pi.
     pub struct Sin;
-    /// Arctangent of x (primary) and y (secondary).
     pub struct ATan2;
-    /// Magnitude of x (primary) and y (secondary).
     pub struct Magnitude;
-    /// Arctangent of x.
-    ///
-    /// This function can be scaled by 0-7.
     pub struct ATan;
-    /// Hyperbolic cosine of x.
     pub struct CosH;
-    /// Hyperbolic sine of x.
     pub struct SinH;
-    /// Hyperbolic arctangent of x.
     pub struct ATanH;
-    /// Natural logarithm of x.
-    ///
-    /// This function can be scaled by 1-4.
     pub struct Ln;
-    /// Square root of x.
-    ///
-    /// This function can be scaled by 0-2.
     pub struct Sqrt;
 
     macro_rules! impls {
