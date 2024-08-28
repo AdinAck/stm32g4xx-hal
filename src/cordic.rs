@@ -72,10 +72,14 @@ pub mod types {
 
     pub use fixed::types::{I1F15, I1F31};
 
-    /// Trait for newtypes to represent CORDIC argument or result data.
-    pub trait Tag {
-        /// Internal fixed point representation.
-        type Repr: Ext<Tag = Self>;
+    pub(crate) mod sealed {
+        use super::Ext;
+
+        /// Trait for newtypes to represent CORDIC argument or result data.
+        pub trait Tag {
+            /// Internal fixed point representation.
+            type Repr: Ext<Tag = Self>;
+        }
     }
 
     /// q1.15 fixed point number.
@@ -83,18 +87,18 @@ pub mod types {
     /// q1.31 fixed point number.
     pub struct Q31;
 
-    impl Tag for Q15 {
+    impl sealed::Tag for Q15 {
         type Repr = I1F15;
     }
 
-    impl Tag for Q31 {
+    impl sealed::Tag for Q31 {
         type Repr = I1F31;
     }
 
     /// Extension trait for fixed point types.
     pub trait Ext: Fixed {
         /// Type-state representing this type.
-        type Tag: Tag<Repr = Self>;
+        type Tag: sealed::Tag<Repr = Self>;
 
         /// Convert to bits of the register width,
         fn to_register(self) -> u32;
@@ -127,7 +131,7 @@ pub mod types {
 
     /// Traits and structures related to argument type-states.
     pub(crate) mod arg {
-        use super::{csr, Tag};
+        use super::{csr, sealed::Tag};
 
         pub type Raw = csr::ARGSIZE;
 
@@ -167,7 +171,7 @@ pub mod types {
 
     /// Traits and structures related to result type-states.
     pub(crate) mod res {
-        use super::{csr, Tag};
+        use super::{csr, sealed::Tag};
 
         pub type Raw = csr::RESSIZE;
 
@@ -212,7 +216,7 @@ pub(crate) mod reg_count {
 
     pub struct NReg<T, Count>
     where
-        T: types::Tag,
+        T: types::sealed::Tag,
         Count: data_count::Property<T>,
     {
         _t: PhantomData<T>,
@@ -659,7 +663,7 @@ pub mod op {
 
         pub trait Property<T>
         where
-            T: types::Tag,
+            T: types::sealed::Tag,
         {
             type Signature: super::signature::Property<T::Repr>;
 
@@ -668,7 +672,7 @@ pub mod op {
 
         impl<T> Property<T> for One
         where
-            T: types::Tag,
+            T: types::sealed::Tag,
         {
             type Signature = T::Repr;
 
@@ -677,7 +681,7 @@ pub mod op {
 
         impl<T> Property<T> for Two
         where
-            T: types::Tag,
+            T: types::sealed::Tag,
         {
             type Signature = (T::Repr, T::Repr);
 
@@ -699,11 +703,11 @@ pub mod op {
             /// The required argument register writes.
             type NArgs<Arg>
             where
-                Arg: types::arg::State + types::Tag;
+                Arg: types::arg::State + types::sealed::Tag;
             /// The required result register reads.
             type NRes<Res>
             where
-                Res: types::res::State + types::Tag;
+                Res: types::res::State + types::sealed::Tag;
             /// The scale to be applied.
             type Scale;
             /// The operation to perform.
@@ -721,7 +725,7 @@ pub mod op {
     /// Enables writing and reading values
     /// to and from the Cordic.
     #[allow(unused)]
-    pub struct Operation<'a, Arg, Res, Op>
+    struct Operation<'a, Arg, Res, Op>
     where
         Arg: types::arg::State,
         Res: types::res::State,
@@ -742,7 +746,7 @@ pub mod op {
         /// Write arguments to the argument register.
         fn write<Args>(&mut self, args: Args, reg: &crate::stm32::cordic::WDATA)
         where
-            Arg: types::Tag,
+            Arg: types::sealed::Tag,
             Args: signature::Property<Arg::Repr>,
             Op::ArgCount: data_count::Property<Arg, Signature = Args>,
         {
@@ -819,10 +823,10 @@ pub mod op {
                 {
                     type NArgs<Arg> = reg_count::NReg<Arg, Self::ArgCount>
                     where
-                        Arg: types::arg::State + types::Tag;
+                        Arg: types::arg::State + types::sealed::Tag;
                     type NRes<Res> = reg_count::NReg<Res, Self::ResCount>
                     where
-                        Res: types::res::State + types::Tag;
+                        Res: types::res::State + types::sealed::   Tag;
                     type Scale = scale::$SCALE;
                     type Func = func::$FUNC;
 
@@ -840,10 +844,10 @@ pub mod op {
                     impl sealed::Feature for $TAG<scale::$SCALE> {
                         type NArgs<Arg> = reg_count::NReg<Arg, Self::ArgCount>
                         where
-                            Arg: types::arg::State + types::Tag;
+                            Arg: types::arg::State + types::sealed::Tag;
                         type NRes<Res> = reg_count::NReg<Res, Self::ResCount>
                         where
-                            Res: types::res::State + types::Tag;
+                            Res: types::res::State + types::sealed::Tag;
                         type Scale = scale::$SCALE;
                         type Func = func::$FUNC;
 
@@ -932,10 +936,10 @@ pub mod op {
         impl Feature for Any {
             type NArgs<Arg> = ()
             where
-                Arg: types::arg::State + types::Tag;
+                Arg: types::arg::State + types::sealed::Tag;
             type NRes<Res> = ()
             where
-                Res: types::res::State + types::Tag;
+                Res: types::res::State + types::sealed::Tag;
             type Scale = ();
             type Func = ();
 
@@ -1039,7 +1043,7 @@ pub mod op {
 }
 
 /// Configuration for the Cordic.
-pub struct Config<Arg, Res, NArgs, NRes, Scale, Prec, Func> {
+struct Config<Arg, Res, NArgs, NRes, Scale, Prec, Func> {
     arg: Arg,
     res: Res,
     nargs: NArgs,

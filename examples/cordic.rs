@@ -7,12 +7,11 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate stm32g4xx_hal as hal;
 
-use fixed::types::I1F15;
 use hal::cordic::{
     op::{dynamic::Mode as _, Magnitude, SinCos, Sqrt},
     prec::P60,
     scale::N0,
-    types::{Q15, Q31},
+    types::{I1F15, Q15, Q31},
     Ext as _,
 };
 use hal::prelude::*;
