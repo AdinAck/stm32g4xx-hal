@@ -44,9 +44,9 @@ use crate::{
 };
 use core::marker::PhantomData;
 
-/// Extension trait for constraining the CORDIC peripheral.
+/// Extension trait for constraining the Cordic peripheral.
 pub trait Ext {
-    /// Constrain the CORDIC peripheral.
+    /// Constrain the Cordic peripheral.
     fn constrain(self, rcc: &mut Rcc) -> CordicReset;
 }
 
@@ -75,7 +75,7 @@ pub mod types {
     pub(crate) mod sealed {
         use super::Ext;
 
-        /// Trait for newtypes to represent CORDIC argument or result data.
+        /// Trait for tags to represent Cordic argument or result data.
         pub trait Tag {
             /// Internal fixed point representation.
             type Repr: Ext<Tag = Self>;
@@ -97,7 +97,7 @@ pub mod types {
 
     /// Extension trait for fixed point types.
     pub trait Ext: Fixed {
-        /// Type-state representing this type.
+        /// Tag representing this type.
         type Tag: sealed::Tag<Repr = Self>;
 
         /// Convert to bits of the register width,
@@ -109,9 +109,12 @@ pub mod types {
     impl Ext for I1F15 {
         type Tag = Q15;
 
+        #[inline]
         fn to_register(self) -> u32 {
             self.to_bits() as u16 as u32
         }
+
+        #[inline]
         fn from_register(bits: u32) -> Self {
             Self::from_bits(bits as u16 as i16)
         }
@@ -120,10 +123,12 @@ pub mod types {
     impl Ext for I1F31 {
         type Tag = Q31;
 
+        #[inline]
         fn to_register(self) -> u32 {
             self.to_bits() as u32
         }
 
+        #[inline]
         fn from_register(bits: u32) -> Self {
             Self::from_bits(bits as i32)
         }
@@ -503,7 +508,7 @@ pub mod op {
 
     /// Traits and structures related to the operation signature.
     pub(crate) mod signature {
-        use super::{super::reg_count, data_count, types};
+        use super::types;
         use types::arg::State as _;
         use types::res::State as _;
 
@@ -515,9 +520,6 @@ pub mod op {
         where
             T: types::Ext,
         {
-            /// Number of register operations required.
-            type NReg;
-
             /// Write arguments to the argument register.
             ///
             /// # Safety:
@@ -541,8 +543,7 @@ pub mod op {
         where
             T: types::Ext,
         {
-            type NReg = reg_count::NReg<T::Tag, data_count::One>;
-
+            #[inline]
             unsafe fn write(self, reg: &WData)
             where
                 T::Tag: types::arg::State,
@@ -551,7 +552,7 @@ pub mod op {
                     types::arg::Raw::Bits16 => {
                         // $RM0440 17.4.2
                         // since we are only using the lower half of the register,
-                        // the CORDIC **will** read the upper half if the function
+                        // the Cordic **will** read the upper half if the function
                         // accepts two arguments, so we fill it with +1 as per the
                         // stated default.
                         self.to_register() | (0x7fff << 16)
@@ -565,6 +566,7 @@ pub mod op {
                 });
             }
 
+            #[inline]
             unsafe fn read(reg: &RData) -> Self
             where
                 T::Tag: types::res::State,
@@ -577,8 +579,7 @@ pub mod op {
         where
             T: types::Ext,
         {
-            type NReg = reg_count::NReg<T::Tag, data_count::Two>;
-
+            #[inline]
             unsafe fn write(self, reg: &WData)
             where
                 T::Tag: types::arg::State,
@@ -607,6 +608,7 @@ pub mod op {
                 };
             }
 
+            #[inline]
             unsafe fn read(reg: &RData) -> Self
             where
                 T::Tag: types::res::State,
@@ -692,12 +694,12 @@ pub mod op {
                 Res: types::res::State + types::sealed::Tag;
             /// The scale to be applied.
             type Scale;
-            /// The operation to perform.
+            /// The function to evaluate.
             type Func;
 
             /// The number of arguments required.
             type ArgCount;
-            /// The number of arguments produced.
+            /// The number of results produced.
             type ResCount;
         }
     }
@@ -726,6 +728,7 @@ pub mod op {
         Op: sealed::Feature,
     {
         /// Write arguments to the argument register.
+        #[inline]
         fn write<Args>(&mut self, args: Args, reg: &crate::stm32::cordic::WDATA)
         where
             Arg: types::sealed::Tag,
@@ -740,6 +743,7 @@ pub mod op {
         }
 
         /// Read results from the result register.
+        #[inline]
         fn read(
             &mut self,
             reg: &crate::stm32::cordic::RDATA,
@@ -871,11 +875,12 @@ pub mod op {
         Op: sealed::Feature,
     {
         /// Start the configured operation.
+        #[inline]
         pub fn start(&mut self, args: <Op::ArgCount as data_count::Property<Arg>>::Signature)
         where
             Op::ArgCount: data_count::Property<Arg>,
         {
-            let config = &self._config;
+            let config = &self.config;
             let mut op = Operation::<Arg, Res, Op> {
                 nargs: &config.nargs,
                 nres: &config.nres,
@@ -887,11 +892,12 @@ pub mod op {
         }
 
         /// Get the result of an operation.
+        #[inline]
         pub fn result(&mut self) -> <Op::ResCount as data_count::Property<Res>>::Signature
         where
             Op::ResCount: data_count::Property<Res>,
         {
-            let config = &self._config;
+            let config = &self.config;
             let mut op = Operation::<Arg, Res, Op> {
                 nargs: &config.nargs,
                 nres: &config.nres,
@@ -906,7 +912,7 @@ pub mod op {
     /// Traits and structures for dynamic function operation.
     pub mod dynamic {
         use super::{
-            super::{prec, reg_count, Config, Cordic},
+            super::{prec, reg_count, Cordic},
             data_count, func, scale,
             sealed::Feature,
             types, Operation,
@@ -959,6 +965,7 @@ pub mod op {
             Res: types::res::State,
             Prec: prec::State,
         {
+            #[inline]
             fn run<Op>(
                 &mut self,
                 args: <Op::ArgCount as data_count::Property<Arg>>::Signature,
@@ -996,31 +1003,6 @@ pub mod op {
                 self.when_ready(|cordic| op.read(cordic.rb.rdata()))
             }
         }
-
-        impl<Arg, Res, Prec> Cordic<Arg, Res, Prec, Any>
-        where
-            Arg: types::arg::State,
-            Res: types::res::State,
-            Prec: prec::State,
-        {
-            pub(crate) fn from_static<Func>(other: Cordic<Arg, Res, Prec, Func>) -> Self
-            where
-                Func: Feature,
-            {
-                Cordic {
-                    rb: other.rb,
-                    _config: Config {
-                        arg: other._config.arg,
-                        res: other._config.res,
-                        nargs: (),
-                        nres: (),
-                        scale: (),
-                        prec: other._config.prec,
-                        func: (),
-                    },
-                }
-            }
-        }
     }
 }
 
@@ -1044,7 +1026,7 @@ where
     Op: op::sealed::Feature,
 {
     rb: CORDIC,
-    _config: Config<Arg, Res, Op::NArgs<Arg>, Op::NRes<Res>, Op::Scale, Prec, Op::Func>,
+    config: Config<Arg, Res, Op::NArgs<Arg>, Op::NRes<Res>, Op::Scale, Prec, Op::Func>,
 }
 
 // root impl
@@ -1064,6 +1046,7 @@ where
     ///
     /// *Note: The configuration is inferred from context because
     /// it is represented by generic type-states.*
+    #[inline]
     pub fn freeze<NewArg, NewRes, NewPrec, NewOp>(self) -> Cordic<NewArg, NewRes, NewPrec, NewOp>
     where
         NewArg: types::arg::State,
@@ -1092,7 +1075,7 @@ where
 
         Cordic {
             rb: self.rb,
-            _config: config,
+            config,
         }
     }
 
@@ -1123,7 +1106,18 @@ where
     /// runtime function selection.
     #[inline]
     pub fn into_dynamic(self) -> Cordic<Arg, Res, Prec, op::dynamic::Any> {
-        Cordic::from_static(self)
+        Cordic {
+            rb: self.rb,
+            config: Config {
+                arg: self.config.arg,
+                res: self.config.res,
+                nargs: (),
+                nres: (),
+                scale: (),
+                prec: self.config.prec,
+                func: (),
+            },
+        }
     }
 }
 
@@ -1178,17 +1172,17 @@ where
     Prec: prec::State,
     Op: op::sealed::Feature,
 {
-    /// Release the CORDIC resource binding as a noop.
+    /// Release the Cordic resource binding as a noop.
     ///
     /// # Safety
     ///
-    /// The CORDIC peripheral is not reset.
+    /// The Cordic peripheral is not reset.
     #[inline]
     pub unsafe fn release(self) -> CORDIC {
         self.rb
     }
 
-    /// Release the CORDIC resource binding after reset.
+    /// Release the Cordic resource binding after reset.
     #[inline]
     pub fn release_and_reset(self, rcc: &mut Rcc) -> CORDIC {
         use proto::IntoReset as _;
