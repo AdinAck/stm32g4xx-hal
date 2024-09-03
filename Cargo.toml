@@ -76,7 +76,7 @@ embedded-sdmmc = "0.3.0"
 
 #TODO: Separate feature sets
 [features]
-default = ["rt", "defmt", "stm32g431"]
+default = ["rt"]
 rt = ["stm32g4/rt"]
 
 stm32g431 = ["stm32g4/stm32g431"]
