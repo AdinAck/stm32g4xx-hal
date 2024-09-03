@@ -83,9 +83,9 @@ impl_comp! {
     feature = "stm32g484"
 ))]
 impl_comp! {
-    COMP5: C5CSR, c5csr,
-    COMP6: C6CSR, c6csr,
-    COMP7: C7CSR, c7csr,
+    COMP5: 4,
+    COMP6: 5,
+    COMP7: 6,
 }
 
 // TODO: Split COMP in PAC

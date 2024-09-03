@@ -57,7 +57,7 @@ mod app {
         // Please refer to the Clock Tree manual to determine if it is worth
         // changing to a lower speed for battery life savings.
         let mut clock_config = stm32g4xx_hal::rcc::Config::default()
-            .pll_cfg(pll_config)
+            .pll_cfg(pll_config.validate())
             .clock_src(stm32g4xx_hal::rcc::SysClockSrc::PLL);
 
         // After clock configuration, the following should be true:
@@ -73,8 +73,8 @@ mod app {
 
         unsafe {
             let mut flash = &(*stm32g4xx_hal::stm32::FLASH::ptr());
-            flash.acr.modify(|_, w| {
-                w.latency().bits(0b1000) // 8 wait states
+            flash.acr().modify(|_, w| {
+                w.latency().bits(0b1000); // 8 wait states
             });
         }
 
