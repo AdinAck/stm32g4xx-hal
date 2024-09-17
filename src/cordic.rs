@@ -812,7 +812,7 @@ pub mod op {
                         Arg: types::arg::State + types::sealed::Tag;
                     type NRes<Res> = reg_count::NReg<Res, Self::ResCount>
                     where
-                        Res: types::res::State + types::sealed::   Tag;
+                        Res: types::res::State + types::sealed::Tag;
                     type Scale = scale::$SCALE;
                     type Func = func::$FUNC;
 
